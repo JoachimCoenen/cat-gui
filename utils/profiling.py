@@ -405,7 +405,7 @@ class MethodCallCounter(FunctionCallCounter):
 		_self_._label = f"{typeName}.{_funcName_}()"
 
 
-from Cat.utils.logging_ import logDebug, logInfo, logWarning, logError, logFatal, printIndented
+from ..utils.logging_ import logDebug, logInfo, logWarning, logError, logFatal, printIndented
 
 __all__ = [
 	"Timer",

@@ -7,7 +7,7 @@ forceRebuld = not buildFolderPath.exists()
 
 setup(
     name='Utils Collections',
-    package_dir={'Cat.utils.collections_': ''},
+    package_dir={'cat.utils.collections_': ''},
     ext_modules=cythonize(
         [
             "orderedmultidictBase.pyx",

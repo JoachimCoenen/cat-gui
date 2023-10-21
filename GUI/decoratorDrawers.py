@@ -2,13 +2,13 @@ from typing import Any, Optional, TypeVar, Type, Protocol, Collection, Mapping
 
 from PyQt5.QtGui import QFontDatabase
 
-from Cat.GUI.autoGUI import AutoGUI
-from Cat.GUI.propertyDecorators import *
-from Cat.GUI import CORNERS, PythonGUI
-from Cat.GUI.components.Layouts import SingleColumnLayout
+from .autoGUI import AutoGUI
+from .propertyDecorators import *
+from . import CORNERS, PythonGUI
+from .components.Layouts import SingleColumnLayout
 
-from Cat.Serializable.serializableDataclasses import SerializableDataclass
-from Cat.Serializable.utils import get_args, typeHintMatchesType, getValueOrValueOfProp
+from ..Serializable.serializableDataclasses import SerializableDataclass
+from ..Serializable.utils import get_args, typeHintMatchesType, getValueOrValueOfProp
 
 
 _TT = TypeVar('_TT')

@@ -1,10 +1,10 @@
 from PyQt5.QtGui import QIcon
 
-from Cat.GUI.components.treeBuilderABC import DecorationRole
-from Cat.GUI.components.treeModel import _DataListDefs
+from ...GUI.components.treeBuilderABC import DecorationRole
+from ...GUI.components.treeModel import _DataListDefs
 from typing import Callable, Any, Sequence, Optional, TypeVar, Union, Generic
 
-from Cat.GUI.components.treeBuilderABC import TreeBuilderABC
+from ...GUI.components.treeBuilderABC import TreeBuilderABC
 
 _TT = TypeVar('_TT')
 _TU = TypeVar('_TU')

@@ -2,7 +2,7 @@
 from collections import defaultdict, deque
 from typing import Callable, Hashable, Iterable, TypeVar
 
-from Cat.utils.collections_ import OrderedMultiDict, Stack
+from ..utils.collections_ import OrderedMultiDict, Stack
 
 
 # class _TK:

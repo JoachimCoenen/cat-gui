@@ -9,14 +9,14 @@ from PyQt5.QtCore import pyqtSignal, QEvent, QRectF, Qt, QTimer
 from PyQt5.QtGui import QColor, qGray, QHideEvent, QIcon, QPainter, QPaintEvent, QPixmap, QShowEvent, QWindow
 from PyQt5.QtWidgets import qApp, QLayout, QWidget
 
-from Cat.GUI.components.catWidgetMixins import adjustOverlap, ColorSet, CORNERS, INNER_CORNERS, InnerCorners, joinCorners, joinInnerCorners, \
+from ...GUI.components.catWidgetMixins import adjustOverlap, ColorSet, CORNERS, INNER_CORNERS, InnerCorners, joinCorners, joinInnerCorners, \
 	joinOverlap, Margins, maskCorners, NO_MARGINS, Overlap, palettes, RoundedCorners, CLEAR_COLOR_COLOR_SET, selectInnerCorners, DEFAULT_WINDOW_CORNER_RADIUS
-from Cat.GUI.framelessWindow import framelessWindowsManager
-from Cat.GUI.framelessWindow.utilities import getDefaultAppIcon
-from Cat.GUI.enums import SizePolicy
-from Cat.GUI.icons import icons
-from Cat.GUI.components.Widgets import CatButton, CatFramelessButton, CatWindowMixin
-from Cat.GUI.utilities import connect, CrashReportWrapped
+from . import framelessWindowsManager
+from .utilities import getDefaultAppIcon
+from ...GUI.enums import SizePolicy
+from ...GUI.icons import icons
+from ...GUI.components.Widgets import CatButton, CatFramelessButton, CatWindowMixin
+from ...GUI.utilities import connect, CrashReportWrapped
 
 
 # PythonGUIWidget:      onGUI, GuiCls, parent
@@ -89,7 +89,7 @@ def setNewBorderHue(btn: CatButton, hue: int, useDefault: bool):
 
 
 if TYPE_CHECKING:
-	from Cat.GUI import PythonGUI
+	from ...GUI import PythonGUI
 	_TPythonGUI = TypeVar('_TPythonGUI', bound=PythonGUI)
 else:
 	_TPythonGUI = TypeVar('_TPythonGUI', bound='PythonGUI')
@@ -150,7 +150,7 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 			height: Optional[int] = None
 	):
 		if GUICls is ...:
-			from Cat.GUI import PythonGUI
+			from ...GUI import PythonGUI
 			GUICls = PythonGUI
 		super(CatFramelessWindowMixin, self).__init__(parent, flags | Qt.FramelessWindowHint, x=x, y=y, width=width, height=height)
 		self._initGeometry = (x, y, width, height)

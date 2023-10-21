@@ -6,13 +6,13 @@ import sys
 from dataclasses import Field, fields, MISSING
 from typing import Any, Union, Type, NewType, Optional, Callable, TypeVar, ForwardRef, ClassVar, IO, Iterator, Hashable
 
-import Cat.GUI.propertyDecorators as pd
-from Cat.Serializable.utils import MemoForDeserialization, MemoForSerialization, SerializationPath, get_args, SerializationError, getRef, \
+from ..GUI import propertyDecorators as pd
+from .utils import MemoForDeserialization, MemoForSerialization, SerializationPath, get_args, SerializationError, getRef, \
 	typeHintMatchesType, valueMatchesType, BASIC_TYPES_ENUM, BASIC_TYPES, PropertyDecorator, _eval_type
-from Cat.utils import SINGLETON_FIELD, NoneType, format_full_exc, Nothing
-from Cat.utils.collections_ import OrderedMultiDict
-from Cat.utils.formatters import formatVal
-from Cat.utils.logging_ import logError
+from ..utils import SINGLETON_FIELD, NoneType, format_full_exc, Nothing
+from ..utils.collections_ import OrderedMultiDict
+from ..utils.formatters import formatVal
+from ..utils.logging_ import logError
 
 Dataclass = NewType('Dataclass', Any)
 

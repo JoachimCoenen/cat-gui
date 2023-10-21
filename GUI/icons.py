@@ -8,8 +8,8 @@ from PyQt5.QtCore import QPoint, QRect, QRectF, QSize, Qt
 from PyQt5.QtGui import QColor, QIcon, QIconEngine, QPainter, QPixmap
 from PyQt5.QtSvg import QSvgRenderer
 
-from Cat.GUI.components import catWidgetMixins
-from Cat.utils import DocEnum, getExePath
+from .components import catWidgetMixins
+from ..utils import DocEnum, getExePath
 
 
 class CompositionMode(DocEnum):

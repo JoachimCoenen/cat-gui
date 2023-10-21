@@ -25,7 +25,7 @@ from typing import Optional
 from PyQt5.QtGui import QWindow
 from PyQt5.QtWidgets import QWidget
 
-from Cat.GUI.framelessWindow.framelesshelper import BorderSize, FramelessHelper
+from ...GUI.framelessWindow.framelesshelper import BorderSize, FramelessHelper
 
 framelessHelper = FramelessHelper()
 

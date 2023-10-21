@@ -9,12 +9,12 @@ from PyQt5.QtGui import QBrush, QColor, QCursor, QFont, QHelpEvent, QIcon, QKeyE
 	QPainter, QPainterPath, QPaintEvent, QPen, QResizeEvent, QTransform, QWheelEvent
 from PyQt5.QtWidgets import QApplication, QStyle, QToolTip, QWhatsThis, QWidget
 
-from Cat.GUI.components.catWidgetMixins import CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, \
+from ...GUI.components.catWidgetMixins import CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, \
 	CatStyledWidgetMixin, Margins, maskCorners, PaintEventDebug, palettes, PreciseOverlap, RoundedCorners, \
 	ShortcutMixin, CatFocusableMixin
-from Cat.GUI.enums import SizePolicy, TabPosition, TAB_POSITION_EAST_WEST
-from Cat.GUI.utilities import CrashReportWrapped
-from Cat.utils import Deprecated
+from ...GUI.enums import SizePolicy, TabPosition, TAB_POSITION_EAST_WEST
+from ...GUI.utilities import CrashReportWrapped
+from ...utils import Deprecated
 
 Fixed64 = NewType('Fixed64', int)
 

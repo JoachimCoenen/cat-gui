@@ -13,9 +13,9 @@ from PyQt5.QtGui import QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetric
 	QPaintDevice, QPainter, QPainterPath, QPaintEvent, QPen, QResizeEvent, QStaticText, QShortcutEvent, QPalette
 from PyQt5.QtWidgets import QFrame, QLayout, QScrollBar, QSizePolicy, QWidget, QShortcut, QApplication
 
-from Cat.GUI.utilities import CrashReportWrapped, safeEmit, connect
-from Cat.utils import Decorator
-from Cat.utils.profiling import MethodCallCounter
+from ...GUI.utilities import CrashReportWrapped, safeEmit, connect
+from ...utils import Decorator
+from ...utils.profiling import MethodCallCounter
 
 # global variables for debugging:
 DO_DEBUG_PAINT_EVENT: bool = False

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, Generic, Literal, overload, Type, TypeVar, Union
 from weakref import WeakKeyDictionary
 
-from Cat.utils.profiling import logDebug, logWarning
+from ..utils.profiling import logDebug, logWarning
 
 
 VERBOSE_LOGGING = False

@@ -1,6 +1,6 @@
 from typing import _type_repr, TypeVar, NamedTuple
 
-from Cat.utils.utils import Decorator
+from ..utils.utils import Decorator
 
 
 _TT = TypeVar('_TT')

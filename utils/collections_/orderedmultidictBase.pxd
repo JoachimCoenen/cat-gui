@@ -7,7 +7,8 @@ from libcpp.pair cimport pair
 
 from cpython.ref cimport PyObject
 
-from Cat.cpp.libcpp.unordered_map cimport unordered_map
+# from Cat.cpp.libcpp.unordered_map cimport unordered_map
+from ...cpp.libcpp.unordered_map cimport unordered_map
 
 cdef extern from "pyObjectPtrHash.h":
 	cdef cppclass PyObjectPtrHash:

@@ -17,26 +17,26 @@ from PyQt5.QtCore import pyqtBoundSignal, QItemSelectionModel, QMargins, QObject
 from PyQt5.QtGui import QFont, QFontDatabase, QIcon
 from PyQt5.QtWidgets import QApplication, QDialog, QShortcut, QSizePolicy, QWidget
 
-import Cat.GUI.components.codeEditor as codeEditor
-from Cat.GUI._styles import applyStyle, getStyles, Style
-from Cat.GUI.components.catTabBar import CatTabBar, TabOptions
-from Cat.GUI.components.catWidgetMixins import CANT_AND_NO_OVERLAP, CatFramedWidgetMixin, CatScalableWidgetMixin, \
+from ._styles import applyStyle, getStyles, Style
+from .components import codeEditor
+from .components.catTabBar import CatTabBar, TabOptions
+from .components.catWidgetMixins import CANT_AND_NO_OVERLAP, CatFramedWidgetMixin, CatScalableWidgetMixin, \
 	CatSizePolicyMixin, CORNERS, Margins, NO_MARGINS, NO_OVERLAP, Overlap, OverlapCharacteristics, RoundedCorners, DEFAULT_PANEL_CORNER_RADIUS
-from Cat.GUI.components.Layouts import *
-from Cat.GUI.components.renderArea import CatPainter, RenderArea, Vector
-from Cat.GUI.components.treeBuilderABC import TreeBuilderABC
-from Cat.GUI.components.treeBuilders import DataListBuilder, DataTreeBuilderNode
-from Cat.GUI.components.Widgets import BuilderTreeView, CatBox, CatButton, CatCheckBox, CatComboBox, CatElidedLabel, \
+from .components.Layouts import *
+from .components.renderArea import CatPainter, RenderArea, Vector
+from .components.treeBuilderABC import TreeBuilderABC
+from .components.treeBuilders import DataListBuilder, DataTreeBuilderNode
+from .components.Widgets import BuilderTreeView, CatBox, CatButton, CatCheckBox, CatComboBox, CatElidedLabel, \
 	CatFramelessButton, CatGradiantButton, CatLabel, CatMultiLineTextField, CatOverlay, CatPanel, CatProgressBar, \
 	CatRadioButton, CatScrollArea, CatTextField, CatToolbarSpacer, CatToolButton, DataBuilderTreeView, DataTableModel, \
 	DataTableView, Int64SpinBox, Spoiler, Switch, CatSeparator
-from Cat.GUI.enums import *
-from Cat.GUI.framelessWindow.catFramelessWindowMixin import CatFramelessWindowMixin
-from Cat.GUI.utilities import connect, connectOnlyOnce, CrashReportWrapped
-from Cat.Serializable.utils import get_args
-from Cat.utils import DeferredCallOnceMethod, Deprecated
-from Cat.utils.collections_ import AddToDictDecorator, getIfKeyIssubclass, getIfKeyIssubclassOrEqual, Stack
-from Cat.utils.profiling import ProfiledAction, TimedAction
+from .enums import *
+from .framelessWindow.catFramelessWindowMixin import CatFramelessWindowMixin
+from .utilities import connect, connectOnlyOnce, CrashReportWrapped
+from ..Serializable.utils import get_args
+from ..utils import DeferredCallOnceMethod, Deprecated
+from ..utils.collections_ import AddToDictDecorator, getIfKeyIssubclass, getIfKeyIssubclassOrEqual, Stack
+from ..utils.profiling import ProfiledAction, TimedAction
 
 if not hasattr(QtCore, 'Signal'):
 	QtCore.Signal = QtCore.pyqtSignal
@@ -1631,7 +1631,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		"""
 
 		if closeIcon is None:
-			from Cat.GUI import icons
+			from . import icons
 			closeIcon = icons.icons.closeTab
 		tabBar: CatTabBar = self.addItem(CatTabBar, minimumHeight=0, closeIcon=closeIcon, **kwargs)
 		redrawnCount = getattr(tabBar, '__redrawnCount', 0)

@@ -4,8 +4,8 @@ from datetime import datetime
 from functools import wraps
 from typing import Any, ContextManager, Callable, Protocol
 
-from Cat.utils import format_full_exc, formatters
-from Cat.utils.formatters import formatFuncCall, formatVal, indentMultilineStr, PW, WriterObjectABC
+from ..utils import format_full_exc, formatters
+from ..utils.formatters import formatFuncCall, formatVal, indentMultilineStr, PW, WriterObjectABC
 
 
 def printIndented(val, *, prefix: str = '', indentLvl: int = 0, enabled: bool = True, stream: WriterObjectABC = None):

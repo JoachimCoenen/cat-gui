@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 import sys
 from typing import _eval_type, _GenericAlias, Any, Generic, MutableMapping, Tuple, Type, TypeVar, Union, Optional, Protocol
-from Cat.utils import NoneType
+from ..utils import NoneType
 
 try:
 	from typing import get_args, get_origin

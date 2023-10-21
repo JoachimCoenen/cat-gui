@@ -4,8 +4,8 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import AbstractSet, Any, Callable, cast, Container, Generic, Hashable, Protocol, Sized, TypeVar, Union
 
-from Cat.utils.collections_ import OrderedDict
-from Cat.utils.typing_ import override, typeRepr
+from ..utils.collections_ import OrderedDict
+from ..utils.typing_ import override, typeRepr
 
 _TT = TypeVar('_TT')
 _TD = TypeVar('_TD')

@@ -31,8 +31,8 @@ from PyQt5.QtGui import QMouseEvent, QTouchEvent, QWindow
 
 from PyQt5.QtWidgets import QWidget
 
-from Cat.GUI.framelessWindow.utilities import isMouseInSpecificObjects
-from Cat.GUI.utilities import CrashReportWrapped
+from .utilities import isMouseInSpecificObjects
+from ...GUI.utilities import CrashReportWrapped
 
 
 def getMousePositions(e: QMouseEvent) -> QPointF:

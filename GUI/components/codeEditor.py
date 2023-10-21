@@ -12,16 +12,16 @@ from PyQt5.QtCore import pyqtSignal, QRect, Qt, QPoint
 from PyQt5.QtGui import QBrush, QColor, QMouseEvent
 from PyQt5.QtWidgets import QShortcut
 
-from Cat.GUI.components.catWidgetMixins import CatFocusableMixin, CatFramedAbstractScrollAreaMixin, CatSizePolicyMixin, \
+from ...GUI.components.catWidgetMixins import CatFocusableMixin, CatFramedAbstractScrollAreaMixin, CatSizePolicyMixin, \
 	CatStyledWidgetMixin, CORNERS, palettes, UndoBlockableMixin
-from Cat.GUI.utilities import connect, connectOnlyOnce, CrashReportWrapped
-from Cat.utils import DocEnum, override, HTMLStr
-from Cat.utils.collections_ import AddToDictDecorator, OrderedDict, Stack
-from Cat.utils.profiling import logWarning
+from ...GUI.utilities import connect, connectOnlyOnce, CrashReportWrapped
+from ...utils import DocEnum, override, HTMLStr
+from ...utils.collections_ import AddToDictDecorator, OrderedDict, Stack
+from ...utils.profiling import logWarning
 
 
 if TYPE_CHECKING:
-	from Cat.GUI import PythonGUI
+	from ...GUI import PythonGUI
 
 _m_allLexers: dict[str, Type[QsciLexer]] = {}
 

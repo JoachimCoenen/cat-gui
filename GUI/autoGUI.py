@@ -1,13 +1,13 @@
 from dataclasses import Field, is_dataclass, fields
 from typing import Callable, Optional, TypeVar, Type
 
-from Cat.GUI import Style
-from Cat.GUI.pythonGUI import PythonGUI
+from . import Style
+from .pythonGUI import PythonGUI
 from PyQt5 import QtWidgets, QtCore
 
-from Cat.Serializable.serializableDataclasses import getDecorator, getKwargs, getType, isReadOnly, SerializableDataclass
-from Cat.Serializable.utils import getValueOrValueOfProp, PropertyDecorator
-from Cat.utils import first
+from ..Serializable.serializableDataclasses import getDecorator, getKwargs, getType, isReadOnly, SerializableDataclass
+from ..Serializable.utils import getValueOrValueOfProp, PropertyDecorator
+from ..utils import first
 
 _TT = TypeVar('_TT')
 _TS = TypeVar('_TS')
@@ -37,7 +37,7 @@ class AutoGUI(PythonGUI):
 		return container
 
 	def drawDecoratedField(self, value_: _TT, type_: Optional[Type[_TT]], decorator_: PropertyDecorator, owner_: SerializableDataclass, **kwargs) -> _TT:
-		from Cat.GUI import decoratorDrawers
+		from . import decoratorDrawers
 		decoratorDrawer = decoratorDrawers.getDecoratorDrawer(type(decorator_))
 		if decoratorDrawer is None:
 			raise Exception("Unknown decorator type '{}'. Cannot draw decorator for value '{}', kwargs '{}'".format(decorator_, value_, kwargs))
@@ -66,5 +66,5 @@ class AutoGUI(PythonGUI):
 			setattr(owner, field.name, newValue)
 
 
-from Cat.GUI import addWidgetDrawer
+from . import addWidgetDrawer
 addWidgetDrawer(SerializableDataclass, lambda gui, v, **kwargs: gui.simpleSerializableDataclassArea(v, **kwargs))

@@ -4,9 +4,9 @@ from typing import Any, Callable, Optional, TypeVar, Union, Sequence, Iterable
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFontDatabase
 
-from Cat.GUI.enums import FileExtensionFilter
-from Cat.Serializable.utils import PropertyDecorator
-from Cat.utils.utils import sanitizeFileName, INVALID_PATH_CHARS
+from .enums import FileExtensionFilter
+from ..Serializable.utils import PropertyDecorator
+from ..utils.utils import sanitizeFileName, INVALID_PATH_CHARS
 
 
 _T = TypeVar('_T')

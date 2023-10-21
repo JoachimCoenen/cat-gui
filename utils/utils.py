@@ -696,7 +696,7 @@ if True:
 
 	def format_full_exc(e: Optional[TBaseException] = None, *, indentLvl: int = 0) -> str:
 		from traceback import format_exception
-		from Cat.utils.formatters import indentMultilineStr
+		from ..utils.formatters import indentMultilineStr
 		exc, value, tb = full_exc_info(e)
 		text = ''.join(format_exception(exc, value, tb))
 		return indentMultilineStr(text, indent=indentLvl).s

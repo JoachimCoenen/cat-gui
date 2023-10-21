@@ -4,9 +4,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Generic, Optional, TypeVar, Protocol, AnyStr
 
-from Cat.GUI import addWidgetDrawer, PythonGUI, SizePolicy
 from PyQt5.QtGui import QColor, QPixmap
-from Cat.utils.collections_ import Stack
+
+from .GUI import addWidgetDrawer, PythonGUI, SizePolicy
+from .utils.collections_ import Stack
 
 _TTarget = TypeVar("_TTarget")
 _TDocument = TypeVar("_TDocument")

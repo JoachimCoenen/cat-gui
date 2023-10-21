@@ -13,12 +13,12 @@ from PyQt5.QtGui import QBrush, QFont, QPainter, QPainterPath, QPalette, QPen, Q
 	QColor, QTextDocument, QTextOption, QTransform, QWheelEvent
 from PyQt5.QtWidgets import QWidget
 
-from Cat.GUI.components.catWidgetMixins import CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin, CORNERS, PaintEventDebug, \
+from ...GUI.components.catWidgetMixins import CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin, CORNERS, PaintEventDebug, \
 	palettes
-from Cat.GUI.components.Layouts import WithBlock
-from Cat.GUI.utilities import CrashReportWrapped
-from Cat.utils import Deprecated
-from Cat.utils.collections_ import Stack
+from ...GUI.components.Layouts import WithBlock
+from ...GUI.utilities import CrashReportWrapped
+from ...utils import Deprecated
+from ...utils.collections_ import Stack
 
 
 _TT = TypeVar('_TT')

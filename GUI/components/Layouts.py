@@ -11,12 +11,12 @@ from typing import Any, Callable, Generic, Iterable, List, Optional, Type, TYPE_
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QGridLayout, QLayout, QLayoutItem, QSpacerItem, QWidget, QSizePolicy
 
-from Cat.GUI.components.catWidgetMixins import CatFramedWidgetMixin, Overlap, OverlapCharacteristics, RoundedCorners, OverlapCharTpl
-from Cat.GUI.utilities import disconnectAndDeleteLater
-from Cat.utils import format_full_exc
+from ...GUI.components.catWidgetMixins import CatFramedWidgetMixin, Overlap, OverlapCharacteristics, RoundedCorners, OverlapCharTpl
+from ...GUI.utilities import disconnectAndDeleteLater
+from ...utils import format_full_exc
 
 if TYPE_CHECKING:
-	from Cat.GUI.pythonGUI import PythonGUI
+	from ...GUI.pythonGUI import PythonGUI
 
 
 _TS = TypeVar('_TS')

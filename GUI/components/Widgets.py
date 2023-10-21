@@ -13,12 +13,12 @@ from PyQt5.QtWidgets import QAbstractButton, QAbstractItemView, QAbstractSpinBox
 	QGraphicsEffect, QGridLayout, QLabel, QLayout, QLineEdit, QPushButton, QRadioButton, QScrollArea, QShortcut, QSizePolicy, QStyle, \
 	QStyledItemDelegate, QStyleOptionViewItem, QTableView, QTextEdit, QTreeView, QWidget
 
-from Cat.GUI.components.catWidgetMixins import CatClickableMixin, CatFocusableMixin, CatFramedAbstractScrollAreaMixin, \
+from ...GUI.components.catWidgetMixins import CatClickableMixin, CatFocusableMixin, CatFramedAbstractScrollAreaMixin, \
 	CatFramedAreaMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, CatStyledWidgetMixin, centerOfRect, ColorPalette, CORNERS, \
 	getBorderPath, PaintEventDebug, palettes, ShortcutMixin, UndoBlockableMixin
-from Cat.GUI.components.renderArea import Pens
-from Cat.GUI.components.treeModel import DataTreeModel, TreeModel, TreeItemBase
-from Cat.GUI.utilities import connect, CrashReportWrapped, safeEmit
+from ...GUI.components.renderArea import Pens
+from ...GUI.components.treeModel import DataTreeModel, TreeModel, TreeItemBase
+from ...GUI.utilities import connect, CrashReportWrapped, safeEmit
 
 
 # global variables for debugging:

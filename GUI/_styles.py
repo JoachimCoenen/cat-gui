@@ -6,8 +6,8 @@ from typing import Callable, Dict, Mapping, Optional, Union, Type, overload
 
 from PyQt5 import QtCore
 
-from Cat.utils import Decorator
-from Cat.utils.collections_ import FrozenDict
+from ..utils import Decorator
+from ..utils.collections_ import FrozenDict
 
 if not hasattr(QtCore, 'Signal'):
 	QtCore.Signal = QtCore.pyqtSignal

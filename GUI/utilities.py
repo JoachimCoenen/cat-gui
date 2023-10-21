@@ -5,8 +5,8 @@ from typing import Callable, DefaultDict, Dict, Optional, Union
 from PyQt5 import sip
 from PyQt5.QtCore import pyqtBoundSignal, pyqtSignal, QObject, QTimer
 
-from Cat.utils import Decorator, format_full_exc
-from Cat.utils.profiling import logError, ProfiledAction
+from ..utils import Decorator, format_full_exc
+from ..utils.profiling import logError, ProfiledAction
 
 
 def __onCrash__(exception):
