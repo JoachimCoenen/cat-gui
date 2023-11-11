@@ -245,6 +245,8 @@ loggingIndentInfo: _LoggingIndentFunction = _loggingIndent('loggingIndentInfo', 
 """contextmanager that increases th indentation for all contained logging operations if the log level is greater or equal to LogLevel.INFO."""
 loggingIndentWarning: _LoggingIndentFunction = _loggingIndent('loggingIndentWarning', LogLevel.WARN)
 """contextmanager that increases th indentation for all contained logging operations if the log level is greater or equal to LogLevel.WARN."""
+loggingIndentFatal: _LoggingIndentFunction = _loggingIndent('loggingIndent', LogLevel.FATAL)
+"""contextmanager that increases th indentation for all contained logging operations if the log level is greater or equal to LogLevel.FATAL."""
 loggingIndent: _LoggingIndentFunction = _loggingIndent('loggingIndent', LogLevel.ALWAYS)
 """contextmanager that increases th indentation for all contained logging operations independent of the log level."""
 
