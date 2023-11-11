@@ -3,7 +3,8 @@ from __future__ import annotations
 import collections
 import functools as ft
 from dataclasses import dataclass
-from typing import Callable, Generic, Hashable, Iterable, Mapping, MutableMapping, overload, Protocol, Reversible, SupportsIndex, TypeVar, Union
+from typing import Callable, Generic, Hashable, Iterable, Mapping, MutableMapping, overload, Protocol, Reversible, \
+	SupportsIndex, TypeVar, Union, Any
 from warnings import warn
 
 _TK = TypeVar('_TK', bound=Hashable)
@@ -107,11 +108,12 @@ class AddToDictDecorator(Generic[_TK2, _TV]):
 		super().__init__()
 		self.dict_: MutableMapping[_TK2, _TV] = dict_
 
-	def __call__(self, key: _TK2, forceOverride: bool = False) -> Callable[[_TV], _TV]:
+	def __call__(self, key: _TK2, *, forceOverride: bool = False, kwargs: dict[str, Any] = None) -> Callable[[_TV], _TV]:
 		def addFuncOrClass(funcOrClass: _TV) -> _TV:
 			if not forceOverride and key in self.dict_:
 				raise KeyError(f"There already is an entry for {repr(key)}.")
-			self.dict_[key] = funcOrClass
+			funcOrClassInDict = ft.partial(funcOrClass, **kwargs) if kwargs else funcOrClass
+			self.dict_[key] = funcOrClassInDict
 			return funcOrClass
 		return addFuncOrClass
 

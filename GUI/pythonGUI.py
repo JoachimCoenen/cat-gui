@@ -21,7 +21,8 @@ from ._styles import applyStyle, getStyles, Style
 from .components import codeEditor
 from .components.catTabBar import CatTabBar, TabOptions
 from .components.catWidgetMixins import CANT_AND_NO_OVERLAP, CatFramedWidgetMixin, CatScalableWidgetMixin, \
-	CatSizePolicyMixin, CORNERS, Margins, NO_MARGINS, NO_OVERLAP, Overlap, OverlapCharacteristics, RoundedCorners, DEFAULT_PANEL_CORNER_RADIUS
+	CatSizePolicyMixin, CORNERS, Margins, NO_MARGINS, NO_OVERLAP, Overlap, OverlapCharacteristics, RoundedCorners, \
+	DEFAULT_PANEL_CORNER_RADIUS, KeySequenceLike, setQWidgetShortcutBase, getShortcutParent
 from .components.Layouts import *
 from .components.renderArea import CatPainter, RenderArea, Vector
 from .components.treeBuilderABC import TreeBuilderABC
@@ -147,6 +148,7 @@ class CenteredBlock(WithBlock):
 	def __exit__(self, exc_type, exc_value, traceback):
 		self._spacerFunc(0, SizePolicy.Expanding)
 		return super().__exit__(exc_type, exc_value, traceback)
+
 
 class SeamlessQStackedWidget(QtWidgets.QStackedWidget, CatFramedWidgetMixin):
 
@@ -550,6 +552,66 @@ profiler = ProfiledAction('OnGUI', threshold_percent=1.0, colourNodesBySelftime=
 
 
 _redrawRecursionLvl: int = 0
+
+
+def _connectEventListener(item: QObject, propName: str, value: Any):
+	eventName = propName[2].lower() + propName[3:]
+	event = getattr(item, eventName)
+	receivers = QtCore.QObject.receivers(item, event)
+	if receivers == 1:
+		event.disconnect()
+	elif receivers > 1:
+		raise AttributeError('too many receivers connected to signal. only one (1) is allowed.')
+	connect(event, value)
+
+
+_SHORTCUT_SETTERS: dict[str, Callable[[QObject, KeySequenceLike, dict[str, Any]], bool]] = {}
+_shortcutSetter = AddToDictDecorator(_SHORTCUT_SETTERS)
+
+
+def _setQObjectPropertySimple(item: QObject, propName: str, value: Any) -> None:
+	name = propName[0].upper() + propName[1:len(propName)]
+	getName = 'is' + name if (type(value) is bool and not hasattr(item, propName)) else propName
+	if getattr(item, getName)() != value:
+		setter = getattr(item, 'set' + name)
+		if type(value) is tuple:
+			try:
+				setter(*value)
+			except TypeError:
+				setter(value)
+		else:
+			setter(value)
+
+
+def _setQWidgetShortcut(item: QObject, key: KeySequenceLike, kwargs: dict[str, Any], *, defaultParentDepth: int, shortcutContext: Qt.ShortcutContext) -> bool:
+	shortcutParent = getShortcutParent(item, kwargs.get('parentShortcutDepth', defaultParentDepth) + 1)
+	shortcutEvent = getattr(item, 'shortcutEvent', None)
+	if shortcutEvent is None:
+		onShortcut = lambda shortcut, isAmbiguous: item.setFocus(Qt.ShortcutFocusReason)
+	else:
+		onShortcut = lambda shortcut, isAmbiguous: shortcutEvent(QtGui.QShortcutEvent(key, shortcut.id(), isAmbiguous))
+	setQWidgetShortcutBase(item, shortcutParent, shortcutContext, key, onShortcut)
+	return True
+
+
+_shortcutSetter('parentShortcutDepth')(lambda item, key, kwargs: False)
+_shortcutSetter('windowShortcut', kwargs=dict(defaultParentDepth=-1, shortcutContext=Qt.WindowShortcut))(_setQWidgetShortcut)
+_shortcutSetter('selfShortcut', kwargs=dict(defaultParentDepth=-1, shortcutContext=Qt.WidgetWithChildrenShortcut))(_setQWidgetShortcut)
+_shortcutSetter('shortcut', kwargs=dict(defaultParentDepth=0, shortcutContext=Qt.WidgetWithChildrenShortcut))(_setQWidgetShortcut)
+_shortcutSetter('parentShortcut', kwargs=dict(defaultParentDepth=1, shortcutContext=Qt.WidgetWithChildrenShortcut))(_setQWidgetShortcut)
+
+
+def _setQObjectProperty(item: QObject, propName: str, value: Any, kwargs: dict[str, Any]) -> bool:
+	# value is just a plain value:
+	try:
+		_setQObjectPropertySimple(item, propName, value)
+		hasShortcut = False
+	except AttributeError:
+		shortcutSetter = _SHORTCUT_SETTERS.get(propName)
+		if shortcutSetter is None:
+			raise
+		hasShortcut = shortcutSetter(item, value, kwargs)
+	return hasShortcut
 
 
 @dataclasses.dataclass(init=False, repr=False, eq=False)
@@ -1079,72 +1141,9 @@ class PythonGUI(CatScalableWidgetMixin):
 					applyStyle(item, value)
 			elif propName.startswith('on') and len(propName) > 2 and propName[2].isupper():
 				# value is an eventListener (a function), so connect it:
-				eventName = propName[2].lower() + propName[3:]
-				event = getattr(item, eventName)
-				receivers = QtCore.QObject.receivers(item, event)
-				if receivers == 1:
-					event.disconnect()
-				elif receivers > 1:
-					raise AttributeError('too many receivers connected to signal. only one (1) is allowed.')
-				connect(event, value)
+				_connectEventListener(item, propName, value)
 			else:
-				# value is just a plain value:
-				name = propName[0].upper() + propName[1:len(propName)]
-				setName = 'set' + name
-				getName = 'is' + name if (type(value) is bool and not hasattr(item, propName)) else propName
-				try:
-					if getattr(item, getName)() != value:
-						if type(value) is tuple:
-							try:
-								getattr(item, setName)(*value)
-							except TypeError:
-								getattr(item, setName)(value)
-						else:
-							getattr(item, setName)(value)
-				except AttributeError:
-					if propName == 'shortcut':
-						isShortcut = True
-						itemParent = item.parent()
-						shortcutContext: Qt.ShortcutContext = Qt.WidgetWithChildrenShortcut
-					elif propName == 'parentShortcut':
-						isShortcut = True
-						itemParent = item.parent().parent()
-						shortcutContext: Qt.ShortcutContext = Qt.WidgetWithChildrenShortcut
-					elif propName == 'selfShortcut':
-						isShortcut = True
-						itemParent = item
-						shortcutContext: Qt.ShortcutContext = Qt.WidgetWithChildrenShortcut
-					elif propName == 'windowShortcut':
-						isShortcut = True
-						itemParent = item
-						shortcutContext: Qt.ShortcutContext = Qt.WindowShortcut
-					else:
-						raise
-
-					if isShortcut:
-						hasShortcut = True
-						currentShortcut: QShortcut = getattr(item, '__currentShortcut', None)
-						if currentShortcut is None:
-							currentShortcut = QShortcut(
-								value,
-								itemParent,
-								lambda item=item: item.setFocus(Qt.ShortcutFocusReason) if not sip.isdeleted(item) else None,
-								lambda item=item: item.setFocus(Qt.ShortcutFocusReason) if not sip.isdeleted(item) else None,
-								shortcutContext
-							)
-
-							def itemDestroyed(x, currentShortcut=currentShortcut):
-								currentShortcut.setEnabled(False)
-								currentShortcut.setParent(cast(QWidget, None))
-								currentShortcut.deleteLater()
-							connect(item.destroyed, itemDestroyed)
-							setattr(item, '__currentShortcut', currentShortcut)
-						else:
-							currentShortcut.setKey(value)
-							currentShortcut.setParent(itemParent)
-							currentShortcut.setEnabled(True)
-					else:
-						raise
+				hasShortcut |= _setQObjectProperty(item, propName, value, kwargs)
 		if not hasShortcut:
 			currentShortcut: QShortcut = getattr(item, '__currentShortcut', None)
 			if currentShortcut is not None:
@@ -1683,7 +1682,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		splitterWidget = self.addItem(SeamlessQSplitter, **kwargs)
 		if 'handleWidth' not in kwargs:
 			style = splitterWidget.style()
-			splitterWidget.setHandleWidth(style.pixelMetric(style.PM_SplitterWidth, None, splitterWidget))
+			splitterWidget.setHandleWidth(style.pixelMetric(QtWidgets.QStyle.PM_SplitterWidth, None, splitterWidget))
 		return SplitterControl(self, splitterWidget)
 
 	def vSplitter(self, handleWidth: int = -1, **kwargs):

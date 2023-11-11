@@ -5,7 +5,7 @@ import copy
 import operator
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Callable, cast, NamedTuple, Optional, TYPE_CHECKING, Union
+from typing import Callable, cast, NamedTuple, Optional, TYPE_CHECKING, Union, TypeAlias
 
 from PyQt5 import sip
 from PyQt5.QtCore import pyqtSignal, QEvent, QMargins, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer
@@ -285,118 +285,55 @@ class CatFocusableMixin:
 
 _NO_SHORTCUT_ID = 0
 
+KeySequenceLike: TypeAlias = QKeySequence | QKeySequence.StandardKey | str | int
+
+
+def setQWidgetShortcutBase(item: QObject, shortcutParent: QWidget, shortcutContext: Qt.ShortcutContext, key: KeySequenceLike, onShortcut: Callable[[QShortcut, bool], None]) -> None:
+	currentShortcut: QShortcut = getattr(item, '__currentShortcut', None)
+	if currentShortcut is None:
+		currentShortcut = QShortcut(shortcutParent)
+		def itemDestroyed(x):
+			currentShortcut.setEnabled(False)
+			currentShortcut.setParent(cast(QWidget, None))
+			currentShortcut.deleteLater()
+
+		connect(item.destroyed, itemDestroyed)
+		setattr(item, '__currentShortcut', currentShortcut)
+	else:
+		currentShortcut.activated.disconnect()
+		currentShortcut.activatedAmbiguously.disconnect()
+
+	currentShortcut.setKey(key)
+	currentShortcut.setParent(shortcutParent)
+	currentShortcut.setContext(shortcutContext)
+	connect(
+		currentShortcut.activated,
+		lambda: (onShortcut(currentShortcut, False) if not sip.isdeleted(item) else None)
+	)
+	connect(
+		currentShortcut.activatedAmbiguously,
+		lambda: (onShortcut(currentShortcut, False) if not sip.isdeleted(item) else None)
+	)
+	currentShortcut.setEnabled(True)
+
+
+def getShortcutParent(item: QObject, parentDepth: int) -> QObject:
+	itemParent = item
+	for i in range(parentDepth):
+		oldItemParent, itemParent = itemParent, itemParent.parent()
+		if itemParent is None:
+			raise ValueError(f"{item} has only {i} parents, but parentDepth={parentDepth} parents are required. The outermost parent is {oldItemParent}.")
+	return itemParent
+
 
 class ShortcutMixin:
 	if TYPE_CHECKING:
-		destroyed = pyqtSignal(Optional[QObject])
-
-		def parent(self) -> Optional[QObject]: ...
 		def event(self, event: QEvent) -> bool: ...
 		def setFocus(self, reason: Qt.FocusReason) -> None: ...
-
-	def __init__(self, *args, **kwargs):
-		super(ShortcutMixin, self).__init__(*args, **kwargs)
-
-		self.__currentShortcut: Optional[QShortcut] = None
-
-		self._shortcut: Optional[QKeySequence] = None
-		self._parentShortcut: Optional[QKeySequence] = None
-		self._selfShortcut: Optional[QKeySequence] = None
-		self._windowShortcut: Optional[QKeySequence] = None
-
-	def _setShortcutInternal(self, key: QKeySequence, shortcutParent: QWidget, context: Qt.ShortcutContext) -> None:
-		currentShortcut: Optional[QShortcut] = self.__currentShortcut
-		if currentShortcut is None:
-			currentShortcut = QShortcut(shortcutParent)
-			currentShortcut.setKey(key)
-			currentShortcut.setContext(context)
-			connect(
-				currentShortcut.activated,
-				lambda: (self.shortcutEvent(QShortcutEvent(key, currentShortcut.id(), False)) if not sip.isdeleted(cast(QObject, self)) else None)
-			)
-			connect(
-				currentShortcut.activatedAmbiguously,
-				lambda: (self.shortcutEvent(QShortcutEvent(key, currentShortcut.id(), True)) if not sip.isdeleted(cast(QObject, self)) else None)
-			)
-
-			def itemDestroyed(x, currentShortcut=currentShortcut):
-				currentShortcut.setEnabled(False)
-				currentShortcut.setParent(cast(QObject, None))  # casting is order to avoid "Expected type 'QObject', got 'None' instead " error
-				currentShortcut.deleteLater()
-
-			connect(self.destroyed, itemDestroyed)
-			self.__currentShortcut = currentShortcut
-		else:
-			currentShortcut.setKey(key)
-			currentShortcut.setParent(shortcutParent)
-			currentShortcut.setEnabled(True)
-
-	def _resetShortcutInternal(self) -> None:
-		currentShortcut: Optional[QShortcut] = self.__currentShortcut
-		if currentShortcut is not None:
-			currentShortcut.setEnabled(False)
-
-	def _clearShortcutVars(self) -> None:
-		self._shortcut = None
-		self._parentShortcut = None
-		self._selfShortcut = None
-		self._windowShortcut = None
 
 	def shortcutEvent(self, event: QShortcutEvent) -> None:
 		if not self.event(event):
 			self.setFocus(Qt.ShortcutFocusReason)
-
-	def shortcut(self) -> Optional[QKeySequence]:
-		return self._shortcut
-
-	def setShortcut(self, key: Optional[QKeySequence]):
-		self._clearShortcutVars()
-		if key is None:
-			self._resetShortcutInternal()
-		else:
-			shortcutParent = self.parent()
-			context: Qt.ShortcutContext = Qt.WidgetWithChildrenShortcut
-			self._setShortcutInternal(key, shortcutParent, context)
-			self._shortcut = key
-
-	def parentShortcut(self) -> Optional[QKeySequence]:
-		return self._parentShortcut
-
-	def setParentShortcut(self, key: Optional[QKeySequence]):
-		self._clearShortcutVars()
-		if key is None:
-			self._resetShortcutInternal()
-		else:
-			shortcutParent = self.parent().parent()
-			context: Qt.ShortcutContext = Qt.WidgetWithChildrenShortcut
-			self._setShortcutInternal(key, shortcutParent, context)
-			self._parentShortcut = key
-
-	def selfShortcut(self) -> Optional[QKeySequence]:
-		return self._selfShortcut
-
-	def setSelfShortcut(self, key: Optional[QKeySequence]):
-		self._clearShortcutVars()
-		if key is None:
-			self._resetShortcutInternal()
-		else:
-			shortcutParent = cast(QWidget, self)
-			context: Qt.ShortcutContext = Qt.WidgetWithChildrenShortcut
-			self._setShortcutInternal(key, shortcutParent, context)
-			self._selfShortcut = key
-
-	def windowShortcut(self) -> Optional[QKeySequence]:
-		return self._windowShortcut
-
-	def setWindowShortcut(self, key: Optional[QKeySequence]):
-		self._clearShortcutVars()
-		if key is None:
-			self._resetShortcutInternal()
-		else:
-			shortcutParent = cast(QWidget, self)
-			context: Qt.ShortcutContext = Qt.WindowShortcut
-			self._setShortcutInternal(key, shortcutParent, context)
-			self._windowShortcut = key
 
 
 class UndoBlockableMixin:

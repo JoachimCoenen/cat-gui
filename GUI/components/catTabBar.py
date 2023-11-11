@@ -1293,7 +1293,8 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 		return self.adjustSizeByOverlap(minSize)
 
 	def _toolTipEvent(self, ev: QHelpEvent) -> bool:
-		if (tab := self.getTabAtPos(ev.pos())) is not None and (tip := tab.options.tip) is not None:
+		tip = self.toolTip() or ((tab := self.getTabAtPos(ev.pos())) is not None and tab.options.tip)
+		if tip is not None:
 			QToolTip.showText(ev.globalPos(), tip, self)
 			return True
 		return False
