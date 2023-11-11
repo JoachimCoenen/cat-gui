@@ -517,6 +517,7 @@ class OverlapCharacteristics(NamedTuple):
 CAN_AND_REQ_OVERLAP = OverlapCharacteristics((True, True, True), (True, True, True), (True, True, True), (True, True, True))
 CANT_BUT_REQ_OVERLAP = OverlapCharacteristics((False, True, True), (False, True, True), (False, True, True), (False, True, True))
 CANT_AND_NO_OVERLAP = OverlapCharacteristics((False, False, False), (False, False, False), (False, False, False), (False, False, False))
+CAN_BUT_NO_BORDER_OVERLAP = OverlapCharacteristics((True, False, False), (True, False, False), (True, False, False), (True, False, False))
 
 
 class CatFramedWidgetMixin:

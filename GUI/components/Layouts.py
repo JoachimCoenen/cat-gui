@@ -762,10 +762,10 @@ class SeamlessQGridLayout(QGridLayout, CatFramedWidgetMixin):
 			itemR = _framedForItem(self.itemAtPosition(row, col + colSpan))
 			itemB = _framedForItem(self.itemAtPosition(row + rowSpan, col))
 
-			otherOlpL = (False, False) if itemL is None else itemL.overlapCharacteristics.right
-			otherOlpT = (False, False) if itemT is None else itemT.overlapCharacteristics.bottom
-			otherOlpR = (False, False) if itemR is None else itemR.overlapCharacteristics.left
-			otherOlpB = (False, False) if itemB is None else itemB.overlapCharacteristics.top
+			otherOlpL = (False, False, False) if itemL is None else itemL.overlapCharacteristics.right
+			otherOlpT = (False, False, False) if itemT is None else itemT.overlapCharacteristics.bottom
+			otherOlpR = (False, False, False) if itemR is None else itemR.overlapCharacteristics.left
+			otherOlpB = (False, False, False) if itemB is None else itemB.overlapCharacteristics.top
 
 			overlap, corners = calculateBorderInfo(framed.overlapCharacteristics, otherOlpL, otherOlpT, otherOlpR, otherOlpB, isL, isT, isR, isB, olp, crn, (1, 1))
 			finalizeBorders(framed, overlap, corners)

@@ -14,8 +14,9 @@ from PyQt5.QtWidgets import QAbstractButton, QAbstractItemView, QAbstractSpinBox
 	QStyledItemDelegate, QStyleOptionViewItem, QTableView, QTextEdit, QTreeView, QWidget
 
 from ...GUI.components.catWidgetMixins import CatClickableMixin, CatFocusableMixin, CatFramedAbstractScrollAreaMixin, \
-	CatFramedAreaMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, CatStyledWidgetMixin, centerOfRect, ColorPalette, CORNERS, \
-	getBorderPath, PaintEventDebug, palettes, ShortcutMixin, UndoBlockableMixin
+	CatFramedAreaMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, CatStyledWidgetMixin, \
+	centerOfRect, ColorPalette, CORNERS, getBorderPath, PaintEventDebug, palettes, ShortcutMixin, UndoBlockableMixin, \
+	OverlapCharacteristics, CAN_BUT_NO_BORDER_OVERLAP
 from ...GUI.components.renderArea import Pens
 from ...GUI.components.treeModel import DataTreeModel, TreeModel, TreeItemBase
 from ...GUI.utilities import connect, CrashReportWrapped, safeEmit
@@ -1241,6 +1242,10 @@ class CatFramelessButton(CatButton):
 		super(CatFramelessButton, self).__init__(parent=parent)
 		self._normalColorPalette = palettes.framelessButtonColorPalette
 		self._updateColorPalette()
+
+	@property
+	def overlapCharacteristics(self) -> OverlapCharacteristics:
+		return CAN_BUT_NO_BORDER_OVERLAP
 
 
 class Switch(CatFocusableMixin, ShortcutMixin, QAbstractButton, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
