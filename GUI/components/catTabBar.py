@@ -51,10 +51,6 @@ class QLayoutStruct:
 
 	def __post_init__(self) -> None:
 		self.minimumSize = self.sizeHint
-		# self.maximumSize = QLAYOUTSIZE_MAX
-		# self.expansive = False
-		# self.empty = True
-		# self.spacing = 0
 
 	def smartSizeHint(self) -> int:
 		return self.minimumSize if self.stretch > 0 else self.sizeHint
@@ -66,6 +62,8 @@ class QLayoutStruct:
 
 def qGeomCalc(chainIO: list[QLayoutStruct], start: int, count: int, pos: int, space: int, spacer: int) -> None:
 	"""
+	Taken from Qt source code, because this method is not accessible with PyQt.
+
 	This is the main workhorse of the QGridLayout. It portions out
 	available space to the chain's children.
 
@@ -293,6 +291,9 @@ def qGeomCalc(chainIO: list[QLayoutStruct], start: int, count: int, pos: int, sp
 			p += data.effectiveSpacer(spacer) + extra
 
 
+TAB_OVERLAP: int = 1
+
+
 @dataclass
 class CatTabLayout:
 	minRect: QRect = field(default_factory=QRect)
@@ -329,13 +330,6 @@ class Tab:
 		Tabs are managed by instance; they are not the same even
 		if all properties are the same.
 	"""
-	# text: str
-	# icon: QIcon = QIcon()
-	# toolTip: Optional[str] = None
-	# whatsThis: Optional[str] = None
-	# textColor: Optional[QColor] = None
-	# enabled: bool = True
-	# visible: bool = True
 	options: TabOptions
 	layout: CatTabLayout = field(default_factory=CatTabLayout)
 	dragOffset: QPoint = field(default_factory=QPoint)
@@ -356,15 +350,9 @@ class CatTabBarStyle:
 
 @dataclass
 class CatTabBarLayoutOptions:
-	# scale: float  is already covered by CatScalableWidgetMixin
-	# overlap: PreciseOverlap  is already covered by CatFramedWidgetMixin
-	# availableSize: QSize  is already covered by CatFramedWidgetMixin
 	position: TabPosition
-	# fontMetrics: QFontMetrics  is already covered by CatScalableWidgetMixin (via font())
 	tabsClosable: bool
 	expanding: bool
-	tabOverlap: int = 1
-	# baseIconHeight: float = 17.  is already covered by CatScalableWidgetMixin
 	elideMode: Qt.TextElideMode = Qt.ElideMiddle
 
 	@property
@@ -373,9 +361,6 @@ class CatTabBarLayoutOptions:
 
 
 def transposeRect(r: QRect) -> QRect:
-	# size = r.size().transposed()
-	# r.setTopLeft(r.topLeft().transposed())
-	# r.setSize(size)
 	return QRect(r.topLeft().transposed(), r.size().transposed())
 
 
@@ -528,7 +513,6 @@ class TabLayouter(CatScalableWidgetMixin):  # , CatFramedWidgetMixin):
 	def layoutTabsQ(self, tabs: List[Tab]) -> None:
 		q = self  # : CatTabBar
 		expanding = self.lo.expanding
-		tabOverlap = self.lo.tabOverlap
 		size: QSize = q.size
 		vertTabs: bool = self.lo.isVertical
 		tabChainIndex: int = 0
@@ -570,17 +554,17 @@ class TabLayouter(CatScalableWidgetMixin):  # , CatFramedWidgetMixin):
 			szMin = self._minimumTabSizeHint(options)
 			tab.layout.minRect = QRect(minx, miny, szMin.width(), szMin.height())
 			if vertTabs:
-				y += sz.height() - tabOverlap
-				miny += szMin.height() - tabOverlap
+				y += sz.height() - TAB_OVERLAP
+				miny += szMin.height() - TAB_OVERLAP
 				maxWidth = max(maxWidth, sz.width())
 			else:
-				x += sz.width() - tabOverlap
-				minx += szMin.width() - tabOverlap
+				x += sz.width() - TAB_OVERLAP
+				minx += szMin.width() - TAB_OVERLAP
 				maxHeight = max(maxHeight, sz.height())
 
 			chainItem = QLayoutStruct()
-			chainItem.sizeHint = (sz.height() if vertTabs else sz.width()) - tabOverlap
-			chainItem.minimumSize = (szMin.height() if vertTabs else szMin.width()) - tabOverlap
+			chainItem.sizeHint = (sz.height() if vertTabs else sz.width()) - TAB_OVERLAP
+			chainItem.minimumSize = (szMin.height() if vertTabs else szMin.width()) - TAB_OVERLAP
 			chainItem.empty = False
 			chainItem.expansive = True
 			if not expanding:
@@ -618,18 +602,18 @@ class TabLayouter(CatScalableWidgetMixin):  # , CatFramedWidgetMixin):
 				continue
 			lstruct: QLayoutStruct = tabChain[i + 1 - hiddenTabs]
 			if not vertTabs:
-				tab.layout.rect.setRect(lstruct.pos - self._overlap[0], 0 - self._overlap[1], lstruct.size + tabOverlap, maxExtent)
+				tab.layout.rect.setRect(lstruct.pos - self._overlap[0], 0 - self._overlap[1], lstruct.size + TAB_OVERLAP, maxExtent)
 			else:
-				tab.layout.rect.setRect(0 - self._overlap[0], lstruct.pos - self._overlap[1], maxExtent, lstruct.size + tabOverlap)
+				tab.layout.rect.setRect(0 - self._overlap[0], lstruct.pos - self._overlap[1], maxExtent, lstruct.size + TAB_OVERLAP)
 			self._computeContentRects(tab)
 
 		if self.lo.isVertical:
 			available = self.size.height()
-			maxExtent = y + tabOverlap
+			maxExtent = y + TAB_OVERLAP
 			maxTranslation = QPoint(0, max(maxExtent - available, 0))
 		else:
 			available = self.size.width()
-			maxExtent = x + tabOverlap
+			maxExtent = x + TAB_OVERLAP
 			maxTranslation = QPoint(max(maxExtent - available, 0), 0)
 
 		self._maxTranslation = maxTranslation
@@ -896,57 +880,6 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 		if self._currentIndex < 0 < tabsCount:
 			self.setCurrentIndex(0, fireEvent=fireEvent, callRefresh=callRefresh)
 
-	# def tabText(self, index: int) -> str:
-	# 	if (tab := self._getTab(index)) is not None:
-	# 		return tab.text
-	# 	return ''
-	#
-	# def setTabText(self, index: int, text: str) -> None:
-	# 	if (tab := self._getTab(index)) is not None:
-	# 		tab.text = text
-	# 		self._refresh()
-	#
-	# def tabIcon(self, index: int) -> QIcon:
-	# 	if (tab := self._getTab(index)) is not None:
-	# 		return tab.icon
-	# 	return QIcon()
-	#
-	# def setTabIcon(self, index: int, icon: QIcon) -> None:
-	# 	if (tab := self._getTab(index)) is not None:
-	# 		simpleIconChange: bool = (not icon.isNull() and not tab.icon.isNull())
-	# 		tab.icon = icon
-	# 		if simpleIconChange:
-	# 			self.update(self._getTab(index).layout.rect)
-	# 		else:
-	# 			self._refresh()
-	#
-	# def tabToolTip(self, index: int) -> Optional[str]:
-	# 	if (tab := self._getTab(index)) is not None:
-	# 		return tab.toolTip
-	# 	return None
-	#
-	# def setTabToolTip(self, index: int, tip: Optional[str]) -> None:
-	# 	if (tab := self._getTab(index)) is not None:
-	# 		tab.toolTip = tip
-	#
-	# def tabWhatsThis(self, index: int) -> Optional[str]:
-	# 	if (tab := self._getTab(index)) is not None:
-	# 		return tab.whatsThis
-	# 	return None
-	#
-	# def setTabWhatsThis(self, index: int, whatsThis: Optional[str]) -> None:
-	# 	if (tab := self._getTab(index)) is not None:
-	# 		tab.whatsThis = whatsThis
-	#
-	# def tabTextColor(self, index: int) -> Optional[QColor]:
-	# 	if (tab := self._getTab(index)) is not None:
-	# 		return tab.textColor
-	# 	return None
-	#
-	# def setTabTextColor(self, index: int, color: Optional[QColor]) -> None:
-	# 	if (tab := self._getTab(index)) is not None:
-	# 		tab.textColor = color
-
 	def tabOptions(self, index: int) -> Optional[TabOptions]:
 		if (tab := self._getTab(index)) is not None:
 			return tab.options
@@ -1000,12 +933,6 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 		)
 
 	def _refresh(self) -> None:
-		# be safe in case a subclass is also handling move with the tabs
-		# if pressedIndex != -1 and movable and mouseButtons == Qt.NoButton:
-		# 	self.moveTabFinished(pressedIndex)
-		# 	if not self.validIndex(pressedIndex):
-		# 		pressedIndex = -1
-
 		if not self.isVisible():
 			self._layoutDirty = True
 		else:
@@ -1023,7 +950,6 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 				position=self._position,
 				tabsClosable=self._tabsClosable,
 				expanding=self._expanding,
-				tabOverlap=1,
 				elideMode=Qt.ElideNone
 			),
 			size=self.size(),
@@ -1293,7 +1219,10 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 		return self.adjustSizeByOverlap(minSize)
 
 	def _toolTipEvent(self, ev: QHelpEvent) -> bool:
-		tip = self.toolTip() or ((tab := self.getTabAtPos(ev.pos())) is not None and tab.options.tip)
+		tip = self.toolTip()
+		if not tip:
+			if (tab := self.getTabAtPos(ev.pos())) is not None:
+				tip = tab.options.tip
 		if tip is not None:
 			QToolTip.showText(ev.globalPos(), tip, self)
 			return True
