@@ -284,8 +284,6 @@ if True:
 	def _deprecateFunction(func: Callable, *, doc: Optional[str], msg: Optional[str]):
 		return _deprecate(func, doc=doc, msg=msg, typeForMsg='Function', nameForMsg=func.__qualname__)
 
-	_deprecateMethod = _deprecateFunction
-
 	def _makeDeprecated(funcMethodOrClass: Union[Callable, Type], *, doc: Optional[str], msg: Optional[str]):
 		if isinstance(funcMethodOrClass, type):
 			return _deprecateClass(funcMethodOrClass, doc=doc, msg=msg)

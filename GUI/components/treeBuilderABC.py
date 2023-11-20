@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Iterator, Optional, TypeVar, Union, Generic
+from typing import Any, Optional, Sequence, TypeVar, Union, Generic
 
 from PyQt5.QtGui import QColor, QIcon, QPixmap
 
@@ -30,7 +30,7 @@ class TreeBuilderABC(ABC, Generic[_TT]):
 		pass
 
 	@abstractmethod
-	def children(self) -> Iterator[TreeBuilderABC[_TT]]:
+	def children(self) -> Sequence[TreeBuilderABC[_TT]]:
 		pass
 
 	@property
