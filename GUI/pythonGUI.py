@@ -1402,7 +1402,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		"""
 		return self.indentation().surroundWith(lambda: self.toggleLeft(isChecked, title, style=getStyles().title, **kwargs))
 
-	def scrollBox(self, preventVStretch: bool = False, preventHStretch: bool = False, contentsMargins: Margins = None, **kwargs):
+	def scrollBox(self, preventVStretch: bool = False, preventHStretch: bool = False, contentsMargins: Margins = None, verticalSpacing: int = -1, horizontalSpacing: int = -1, **kwargs):
 		"""
 		Creates a vertical layout. has to be used in an ``with`` statement (``with gui.verticalLayout():``).
 		Everything within the with statement will be inside the vertical layout.
@@ -1424,6 +1424,8 @@ class PythonGUI(CatScalableWidgetMixin):
 			qLayout.setContentsMargins(self.qBoxMargins)
 		else:
 			qLayout.setContentsMargins(*contentsMargins)
+		layoutKwArgs = dict(verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing)
+		self.addkwArgsToItem(qLayout, layoutKwArgs)
 		return DoubleColumnLayout(self, qLayout, preventVStretch, preventHStretch)
 
 	def frameBox(self, preventVStretch: bool = False, preventHStretch: bool = False, **kwargs):
