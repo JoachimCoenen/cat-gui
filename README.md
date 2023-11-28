@@ -9,4 +9,15 @@ An [imgui](https://github.com/ocornut/imgui) style gui library for python using 
 
 Used by [Datapack Editor](https://github.com/JoachimCoenen/Datapack-Editor).
 
+### Example
+```
+    class ExampleMainWindow(CatFramelessWindowMixin, QDialog):
+    	def OnGUI(self, gui: AutoGUI):
+            with gui.hLayout():
+        		name = gui.textField(None, label="name")
+                if gui.button(f"greet {name}"):
+                    gui.showInformationDialog(f"Hello {name}!", "How are you?")
+```
+
+
 [NewIssue_LINK]:                 https://github.com/JoachimCoenen/cat-gui/issues/new  "New issue"
