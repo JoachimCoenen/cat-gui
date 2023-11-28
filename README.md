@@ -10,7 +10,7 @@ An [imgui](https://github.com/ocornut/imgui) style gui library for python using 
 Used by [Datapack Editor](https://github.com/JoachimCoenen/Datapack-Editor).
 
 ### Example
-```
+```python
     class ExampleMainWindow(CatFramelessWindowMixin, QDialog):
     	def OnGUI(self, gui: AutoGUI):
             with gui.hLayout():
