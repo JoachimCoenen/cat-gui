@@ -14,7 +14,7 @@ Used by [Datapack Editor](https://github.com/JoachimCoenen/Datapack-Editor).
     class ExampleMainWindow(CatFramelessWindowMixin, QDialog):
     	def OnGUI(self, gui: AutoGUI):
             with gui.hLayout():
-        		name = gui.textField(None, label="name")
+                name = gui.textField(None, label="name")
                 if gui.button(f"greet {name}"):
                     gui.showInformationDialog(f"Hello {name}!", "How are you?")
 ```
