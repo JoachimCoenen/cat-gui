@@ -955,6 +955,10 @@ def setGUIColors(newColors: BaseColors) -> None:
 	standardBaseColors = newColors
 
 
+def getGUIColors() -> BaseColors:
+	return standardBaseColors
+
+
 def updatePalette(palette: QPalette, newColors: BaseColors):
 	setColor(palette, palette.Window,          newColors.Window)
 	setColor(palette, palette.WindowText,      newColors.Text)

@@ -8,7 +8,7 @@ from PyQt5.QtCore import QPoint, QRect, QRectF, QSize, Qt
 from PyQt5.QtGui import QColor, QIcon, QIconEngine, QPainter, QPixmap
 from PyQt5.QtSvg import QSvgRenderer
 
-from .components import catWidgetMixins
+from .components.catWidgetMixins import getGUIColors
 from ..utils import DocEnum, getExePath
 
 
@@ -100,8 +100,8 @@ class SVGIconEngine(QIconEngine):
 
 	def _parse_options(self, specific_options, general_options):
 		_default_options = {
-			'color'         : catWidgetMixins.standardBaseColors.Icon,  # QColor(50, 50, 50),
-			'color_disabled': catWidgetMixins.standardBaseColors.DisabledIcon,  # QColor(150, 150, 150),
+			'color'         : getGUIColors().Icon,  # QColor(50, 50, 50),
+			'color_disabled': getGUIColors().DisabledIcon,  # QColor(150, 150, 150),
 			'opacity'       : 1.0,
 			'scale_factor'  : 1.0,
 		}
@@ -187,11 +187,11 @@ def _resolveLambdas(options: dict[str, Any]) -> dict[str, Any]:
 def _withDefaultColors(option: dict[str, Any], sharedColors: dict[str, Any]) -> dict[str, Any]:
 	option2 = {**sharedColors, **option}
 	if 'color' not in option2:
-		option2.setdefault('color', lambda: catWidgetMixins.standardBaseColors.Icon)
-		option2.setdefault('color_on', lambda: catWidgetMixins.standardBaseColors.Highlight)
-		option2.setdefault('color_selected', lambda: catWidgetMixins.standardBaseColors.HighlightedText)
-		option2.setdefault('color_disabled', lambda: catWidgetMixins.standardBaseColors.DisabledIcon)
-		option2.setdefault('color_active', lambda: catWidgetMixins.standardBaseColors.Text)
+		option2.setdefault('color', lambda: getGUIColors().Icon)
+		option2.setdefault('color_on', lambda: getGUIColors().Highlight)
+		option2.setdefault('color_selected', lambda: getGUIColors().HighlightedText)
+		option2.setdefault('color_disabled', lambda: getGUIColors().DisabledIcon)
+		option2.setdefault('color_active', lambda: getGUIColors().Text)
 	return option2
 
 
@@ -204,8 +204,8 @@ def iconCombiner(*icons: Union[QIcon, tuple[QIcon, dict]]):
 
 def iconFromSVG(svgString: bytes, **options):
 	sharedColors = {
-		'color_selected': lambda: catWidgetMixins.standardBaseColors.HighlightedText,
-		'color_disabled': lambda: catWidgetMixins.standardBaseColors.DisabledIcon
+		'color_selected': lambda: getGUIColors().HighlightedText,
+		'color_disabled': lambda: getGUIColors().DisabledIcon
 	}
 	origOptions = _withDefaultColors(options, sharedColors)
 
@@ -257,8 +257,8 @@ def iconGetter(*names, **kwargs):
 	"""
 	if (options := kwargs.pop('options', None)) is None:
 		options = [{} for _ in names]
-	kwargs.setdefault('color_selected', lambda: catWidgetMixins.standardBaseColors.HighlightedText)
-	kwargs.setdefault('color_disabled', lambda: catWidgetMixins.standardBaseColors.DisabledIcon)
+	kwargs.setdefault('color_selected', lambda: getGUIColors().HighlightedText)
+	kwargs.setdefault('color_disabled', lambda: getGUIColors().DisabledIcon)
 	sharedColors = {k: kwargs.pop(k) for k in kwargs.keys() & {'color', 'color_on', 'color_active', 'color_selected', 'color_disabled'}}
 	origOptions = [_withDefaultColors(option, sharedColors) for option in options]
 
@@ -338,10 +338,10 @@ class _Icons:
 
 	closeTab: QIcon = iconFromSVG(
 		SVG_CLOSE_ICON_FAT,
-		color=lambda: catWidgetMixins.standardBaseColors.Border,
-		color_disabled=lambda: catWidgetMixins.standardBaseColors.DisabledIcon,
-		color_on=lambda: catWidgetMixins.standardBaseColors.Icon,
-		color_selected=lambda: catWidgetMixins.standardBaseColors.Icon,
+		color=lambda: getGUIColors().Border,
+		color_disabled=lambda: getGUIColors().DisabledIcon,
+		color_on=lambda: getGUIColors().Icon,
+		color_selected=lambda: getGUIColors().Icon,
 	)
 
 
