@@ -511,9 +511,10 @@ class CodeEditor(
 		self.setMatchedBraceIndicator(Indicator.MatchedBrace.value)
 
 		#QShortcut(Qt.ControlModifier | Qt.Key_Space, self, lambda: self.showUserList(1, self.buildUserList()) if not sip.isdeleted(self) else None, lambda: None, Qt.WidgetShortcut)
-		QShortcut(Qt.ControlModifier | Qt.Key_Space, self, lambda: self.myStartAutoCompletionOrCallTips() if not sip.isdeleted(self) else None, lambda: None, Qt.WidgetShortcut)
-		QShortcut(Qt.ControlModifier | Qt.Key_K, self, lambda: self.showCallTips() if not sip.isdeleted(self) else None, lambda: None, Qt.WidgetShortcut)
+		QShortcut(Qt.ControlModifier | Qt.Key_Space, self, CrashReportWrapped(lambda: self.myStartAutoCompletionOrCallTips() if not sip.isdeleted(self) else None), lambda: None, Qt.WidgetShortcut)
+		QShortcut(Qt.ControlModifier | Qt.Key_K, self, CrashReportWrapped(lambda: self.showCallTips() if not sip.isdeleted(self) else None), lambda: None, Qt.WidgetShortcut)
 
+	@CrashReportWrapped
 	def _onUserListActivated(self, id: int, selection: str) -> None:
 		li = self.getCursorPosition()
 		pos = self.positionFromLineIndex(*li)
@@ -607,6 +608,7 @@ class CodeEditor(
 		self.cursorPositionChanged_.emit(*cp)
 
 	@override
+	@CrashReportWrapped
 	def getCursorPosition(self) -> tuple[int, int]:
 		"""
 		hides super().getCursorPosition(), which is NOT virtual.
@@ -617,6 +619,7 @@ class CodeEditor(
 		return self._cursorPosition
 
 	@override
+	@CrashReportWrapped
 	def setCursorPosition(self, line: int, index: int) -> None:
 		"""
 		overrides super().setCursorPosition(int line, int index)
@@ -633,6 +636,7 @@ class CodeEditor(
 		self.selectionChanged2.emit(*cp)
 
 	@override
+	@CrashReportWrapped
 	def getSelection(self) -> tuple[int, int, int, int]:
 		"""
 		hides super().getCursorPosition(), which is NOT virtual.
@@ -643,6 +647,7 @@ class CodeEditor(
 		return self._selection
 
 	@override
+	@CrashReportWrapped
 	def setSelection(self, line1: int, index1: int, line2: int, index2: int) -> None:
 		"""
 		overrides super().setCursorPosition(int line, int index)
@@ -747,6 +752,7 @@ class CodeEditor(
 				return api
 		return None
 
+	@CrashReportWrapped
 	def apiContext(self, pos: int) -> tuple[list[str], int, int]:
 		ctx: list[str]
 		ctx, ctxStart, lastWordStart = super(CodeEditor, self).apiContext(pos)
@@ -792,6 +798,7 @@ class CodeEditor(
 			return []
 
 	@override
+	@CrashReportWrapped
 	def wordCharacters(self):
 		lexer = self.lexer()
 		if lexer is not None:
@@ -816,7 +823,6 @@ class CodeEditor(
 	def getBorderBrushes(self, rect: QRect) -> tuple[QBrush, QBrush, QBrush]:
 		self.initIndicatorStyles(indicatorStyles)
 		return self.getBorderBrush(), self.getBorderBrush2(), QBrush(Qt.NoBrush)
-
 
 	@override
 	@CrashReportWrapped
