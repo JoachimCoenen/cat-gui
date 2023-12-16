@@ -9,6 +9,7 @@ import os
 import dataclasses
 from datetime import date
 from enum import Enum
+from types import EllipsisType
 from typing import Any, Callable, cast, ClassVar, ContextManager, Generic, Iterable, Iterator, Literal, Optional, \
 	overload, Protocol, Sequence, Type, TypeVar, Union
 
@@ -2564,10 +2565,10 @@ class PythonGUI(CatScalableWidgetMixin):
 			treeBuilder: TreeBuilderABC[_TT],
 			headerBuilder: Optional[TreeBuilderABC[_T2]] = None,
 			*,
-			headerVisible: bool | Ellipsis = ...,
+			headerVisible: bool | EllipsisType = ...,
 			loadDeferred: bool = True,
 			columnResizeModes: Optional[Iterable[ResizeMode]] = None,
-			stretchLastColumn: bool | Ellipsis = ...,
+			stretchLastColumn: bool | EllipsisType = ...,
 			**kwargs
 	) -> TreeResult[_TT]:
 		if 'itemDelegate' not in kwargs:
