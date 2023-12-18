@@ -6,13 +6,13 @@ import traceback
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, Iterable, List, Optional, Type, TYPE_CHECKING, TypeVar, Union, NamedTuple, cast
+from typing import Any, Callable, Generic, Iterable, List, NamedTuple, Optional, TYPE_CHECKING, Type, TypeVar, Union, cast
 
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QGridLayout, QLayout, QLayoutItem, QSpacerItem, QWidget, QSizePolicy
+from PyQt5.QtWidgets import QGridLayout, QLayout, QLayoutItem, QSizePolicy, QSpacerItem, QWidget
 
-from ...GUI.components.catWidgetMixins import CatFramedWidgetMixin, Overlap, OverlapCharacteristics, RoundedCorners, OverlapCharTpl
-from ...GUI.utilities import disconnectAndDeleteLater
+from ...GUI.components.catWidgetMixins import CatFramedWidgetMixin, Overlap, OverlapCharTpl, OverlapCharacteristics, RoundedCorners
+from ...GUI.utilities import disconnectAndDeleteImmediately, disconnectAndDeleteLater
 from ...utils import format_full_exc
 
 if TYPE_CHECKING:
@@ -94,13 +94,19 @@ def deleteWidget(widget: QWidget) -> None:
 		widget.hide()
 		widget.setParent(None)  # TODO: Test!! (2021-11-11)
 		disconnectAndDeleteLater(widget)
-	# widget.setParent(None)
 
 
 def deleteLayout(layout: QLayout) -> None:
 	removeItemsFromLayout(layout, 0)
 	disconnectAndDeleteLater(layout)
-	# layout.setParent(None)
+
+
+def deleteLayoutImmediately(layout: QLayout) -> None:
+	"""
+	Potentially DANGEROUS!
+	"""
+	removeItemsFromLayout(layout, 0)
+	disconnectAndDeleteImmediately(layout)
 
 
 def deleteItemFromLayout(item: QLayoutItem, qLayout: QLayout):
@@ -403,8 +409,7 @@ class QSingleColumnLayout(QGridLayout):
 
 
 class QDoubleColumnLayout(QGridLayout):
-	def setVerticalSpacing(self, spacing: int) -> None:
-		super(QDoubleColumnLayout, self).setVerticalSpacing(spacing)
+	pass
 
 
 class QTableLayout(QGridLayout):
@@ -412,8 +417,7 @@ class QTableLayout(QGridLayout):
 
 
 class QSingleRowLayout(QGridLayout):
-	def setHorizontalSpacing(self, spacing: int) -> None:
-		super(QSingleRowLayout, self).setHorizontalSpacing(spacing)
+	pass
 
 
 class QDoubleRowLayout(QGridLayout):
@@ -1036,20 +1040,37 @@ def finalizeBorders(item: QLayout | QWidget, overlap: Overlap, corners: RoundedC
 		layout.finalizeBorders()
 
 
+
+class SeamlessQSingleColumnLayout(SeamlessQGridLayout):
+	pass
+
+
+class SeamlessQDoubleColumnLayout(SeamlessQGridLayout):
+	pass
+
+
+class SeamlessQSingleRowLayout(SeamlessQGridLayout):
+	pass
+
+
+class SeamlessQDoubleRowLayout(SeamlessQGridLayout):
+	pass
+
+
 class SeamlessSingleColumnLayout(SingleColumnLayout):
-	QLayoutType = SeamlessQGridLayout
+	QLayoutType = SeamlessQSingleColumnLayout
 
 
 class SeamlessDoubleColumnLayout(DoubleColumnLayout):
-	QLayoutType = SeamlessQGridLayout
+	QLayoutType = SeamlessQDoubleColumnLayout
 
 
 class SeamlessSingleRowLayout(SingleRowLayout):
-	QLayoutType = SeamlessQGridLayout
+	QLayoutType = SeamlessQSingleRowLayout
 
 
 class SeamlessDoubleRowLayout(DoubleRowLayout):
-	QLayoutType = SeamlessQGridLayout
+	QLayoutType = SeamlessQDoubleRowLayout
 
 
 def getSingleColumnLayout(seamless: bool) -> Type[SingleColumnLayout | SeamlessSingleColumnLayout]:
@@ -1074,6 +1095,7 @@ __all__ = [
 	'Marker',
 	'deleteWidget',
 	'deleteLayout',
+	'deleteLayoutImmediately',
 	'deleteItemFromLayout',
 	'removeItemsFromLayout',
 	'WithBlock',
