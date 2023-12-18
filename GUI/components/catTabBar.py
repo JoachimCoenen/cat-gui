@@ -9,8 +9,8 @@ from PyQt5.QtGui import QBrush, QColor, QCursor, QFont, QHelpEvent, QIcon, QKeyE
 	QTransform, QWheelEvent
 from PyQt5.QtWidgets import QApplication, QStyle, QToolTip, QWhatsThis, QWidget
 
-from ...GUI.components.catWidgetMixins import CatFocusableMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, \
-	CatSizePolicyMixin, CatStyledWidgetMixin, Margins, PaintEventDebug, PreciseOverlap, RoundedCorners, ShortcutMixin, maskCorners, palettes
+from ...GUI.components.catWidgetMixins import CAN_AND_REQ_BUT_NO_BORDER_OVERLAP, CAN_AND_REQ_OVERLAP, CatFocusableMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, \
+	CatSizePolicyMixin, CatStyledWidgetMixin, Margins, OverlapCharacteristics, PaintEventDebug, PreciseOverlap, RoundedCorners, ShortcutMixin, maskCorners, palettes
 from ...GUI.enums import SizePolicy, TAB_POSITION_EAST_WEST, TabPosition
 from ...utils import Deprecated
 from ...utils.utils import CrashReportWrapped
@@ -1216,6 +1216,14 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 			max(sz, default.height())
 		)
 		return self.adjustSizeByOverlap(minSize)
+
+	@property
+	def overlapCharacteristics(self) -> OverlapCharacteristics:
+		if self.expanding():
+			return CAN_AND_REQ_OVERLAP
+		# if self.drawBase(): # todo handle directionality of Tabbar
+		# 	return CAN_AND_REQ_OVERLAP
+		return CAN_AND_REQ_BUT_NO_BORDER_OVERLAP
 
 	def _toolTipEvent(self, ev: QHelpEvent) -> bool:
 		tip = self.toolTip()
