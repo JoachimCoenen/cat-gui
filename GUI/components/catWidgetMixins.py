@@ -200,8 +200,8 @@ def PaintEventDebug(method: Callable[[QWidget, QPaintEvent], None]) -> Callable[
 		try:
 			with QPainter(self) as p:
 				p.setRenderHint(QPainter.Antialiasing, True)
-				hasHorMin = not bool(self.sizePolicy().horizontalPolicy() & (QSizePolicy.ShrinkFlag | QSizePolicy.IgnoreFlag))
-				hasVertMin = not bool(self.sizePolicy().verticalPolicy() & (QSizePolicy.ShrinkFlag | QSizePolicy.IgnoreFlag))
+				hasMinWidth = not bool(self.sizePolicy().horizontalPolicy() & (QSizePolicy.ShrinkFlag | QSizePolicy.IgnoreFlag))
+				hasMinHeight = not bool(self.sizePolicy().verticalPolicy() & (QSizePolicy.ShrinkFlag | QSizePolicy.IgnoreFlag))
 
 				if not self.minimumSize().isNull():
 					p.setBrush(Qt.NoBrush)
@@ -218,20 +218,19 @@ def PaintEventDebug(method: Callable[[QWidget, QPaintEvent], None]) -> Callable[
 				bMin = sizeHint.height() - 0.5
 
 				p.setBrush(Qt.NoBrush)
-				p.setPen(QColor(79, 63, 255, 191))
-				if hasHorMin:
+				# p.setPen(QColor(79, 63, 255, 191))
+				p.setPen(QColor(255, 0, 0, 128))
+				if hasMinWidth:
 					p.drawLine(QPointF(rMin, t), QPointF(rMin, b))
-				if hasVertMin:
+				if hasMinHeight:
 					p.drawLine(QPointF(l, bMin), QPointF(r, bMin))
 
-				setPaintEventDebugLineColor(p, hasHorMin, isMin=False)
+				setPaintEventDebugLineColor(p, hasMinWidth, isMin=r <= rMin)
 				p.drawLine(QPointF(l, t), QPointF(l, b))
-				setPaintEventDebugLineColor(p, hasHorMin, isMin=r == rMin)
 				p.drawLine(QPointF(r, t), QPointF(r, b))
 
-				setPaintEventDebugLineColor(p, hasVertMin, isMin=False)
+				setPaintEventDebugLineColor(p, hasMinHeight, isMin=b <= bMin)
 				p.drawLine(QPointF(l, t), QPointF(r, t))
-				setPaintEventDebugLineColor(p, hasVertMin, isMin=b == bMin)
 				p.drawLine(QPointF(l, b), QPointF(r, b))
 		except ValueError as e:
 			if str(e) != 'QPainter must be created with a device':
@@ -242,14 +241,19 @@ def PaintEventDebug(method: Callable[[QWidget, QPaintEvent], None]) -> Callable[
 	return paintEvent
 
 
-def setPaintEventDebugLineColor(p: QPainter, hasMin: bool, isMin: bool) -> None:
+def setPaintEventDebugLineColor(p: QPainter, hasMinSize: bool, isMin: bool) -> None:
+	"""
+	red = we are <= minimum size
+	blue = there's a minimum size that we cannot shrink beyond
+	green = we can shrink all the way to zero width/height
+	"""
 	p.setBrush(Qt.NoBrush)
-	blue = 255 if isMin else 0
+	red = 255 if isMin else 0
 
-	if hasMin:
-		p.setPen(QColor(255, 0, blue, 127))
+	if hasMinSize:
+		p.setPen(QColor(red, 0, 255, 127))
 	else:
-		p.setPen(QColor(0, 127, blue, 127))
+		p.setPen(QColor(red, 127, 0, 127))
 
 
 class CatClickableMixin:
@@ -519,6 +523,7 @@ CAN_AND_REQ_OVERLAP = OverlapCharacteristics((True, True, True), (True, True, Tr
 CANT_BUT_REQ_OVERLAP = OverlapCharacteristics((False, True, True), (False, True, True), (False, True, True), (False, True, True))
 CANT_AND_NO_OVERLAP = OverlapCharacteristics((False, False, False), (False, False, False), (False, False, False), (False, False, False))
 CAN_BUT_NO_BORDER_OVERLAP = OverlapCharacteristics((True, False, False), (True, False, False), (True, False, False), (True, False, False))
+CAN_AND_REQ_BUT_NO_BORDER_OVERLAP = OverlapCharacteristics((True, True, False), (True, True, False), (True, True, False), (True, True, False))
 
 
 class CatFramedWidgetMixin:
@@ -729,11 +734,12 @@ class CatFramedAreaMixin(CatFramedWidgetMixin, CatScalableWidgetMixin):
 			self.parentWidget().render(self._pixmap, -self.pos(), flags=QWidget.DrawWindowBackground)
 			self._paintBorder(self._pixmap, fillCenter=True)
 
-	def _paintBorder(self, paintDevice: QPaintDevice, fillCenter: bool = False):
+	def _paintBorder(self, paintDevice: QPaintDevice, fillCenter: bool = False, tl: QPoint = QPoint()):
 		if CAT_FRAMED_SCROLL_AREA_USE_PIXMAP:
 			rect = self.adjustRectByOverlap(self.rect())
 			# get Colors:
 			borderBrush1, borderBrush2, borderBrush3 = self.getBorderBrushes(rect)
+			# borderBrush1 = QColor('turquoise') if fillCenter else QColor('orange')
 			borderPen1 = QPen(borderBrush1, 1, cap=Qt.SquareCap, join=Qt.SvgMiterJoin)
 			borderPen2 = QPen(borderBrush2, 1, cap=Qt.SquareCap, join=Qt.SvgMiterJoin)
 			borderPen3 = QPen(borderBrush3, 2, cap=Qt.SquareCap, join=Qt.SvgMiterJoin)
@@ -750,6 +756,7 @@ class CatFramedAreaMixin(CatFramedWidgetMixin, CatScalableWidgetMixin):
 
 			try:
 				with QPainter(paintDevice) as p:
+					p.translate(tl)
 					if fillCenter:
 						p.setRenderHint(QPainter.Antialiasing, False)
 						oldCM = p.compositionMode()
@@ -829,7 +836,7 @@ class CatFramedAbstractScrollAreaMixin(CatFramedAreaMixin):
 
 	@property
 	def overlapCharacteristics(self) -> OverlapCharacteristics:
-		return CANT_BUT_REQ_OVERLAP
+		return CANT_BUT_REQ_OVERLAP  # this is because QAbstractScrollArea (and/or QTreeView) takes over contentsMargins() and will always override and ignore its values! :/
 
 	@CrashReportWrapped
 	def event(self, event: QEvent) -> bool:
@@ -860,8 +867,13 @@ class CatFramedAbstractScrollAreaMixin(CatFramedAreaMixin):
 				self._repaintPixmap()
 			tl = widget.mapToGlobal(QPoint(0, 0))
 			tl = self.mapFromGlobal(tl)
-			with QPainter(widget) as p:
-				p.drawImage(-tl, self._pixmap)
+			if any(self.roundedCorners()):
+				with QPainter(widget) as p:
+					p.drawImage(-tl, self._pixmap)
+			else:
+				self._paintBorder(widget, fillCenter=False, tl=-tl)
+
+
 
 
 def matchValue(c1: QColor, *, matchTo: QColor) -> QColor:
