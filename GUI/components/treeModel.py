@@ -7,8 +7,8 @@ from typing import Any, Callable, Generic, List, Optional, Sequence, TYPE_CHECKI
 from PyQt5.QtCore import QAbstractItemModel, QItemSelectionModel, QModelIndex, QPoint, Qt
 from PyQt5.QtGui import QIcon
 
+from cat.utils.utils import CrashReportWrapped
 from ...GUI.components.treeBuilderABC import DecorationRole, TreeBuilderABC
-from ...GUI.utilities import CrashReportWrapped
 from ...utils.collections_ import OrderedMultiDict
 from ...utils.formatters import formatVal
 

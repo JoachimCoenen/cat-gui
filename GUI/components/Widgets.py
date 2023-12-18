@@ -1,26 +1,24 @@
 from __future__ import annotations
 
 from math import ceil, inf
-from typing import cast, List, NamedTuple, Optional, overload, Tuple, TYPE_CHECKING
+from typing import List, NamedTuple, Optional, TYPE_CHECKING, Tuple, cast, overload
 
 from PyQt5 import sip
-from PyQt5.QtCore import pyqtProperty, pyqtSignal, QAbstractTableModel, QEvent, QItemSelection, QItemSelectionModel, QModelIndex, QObject, \
-	QPoint, QPointF, QPropertyAnimation, QRect, QRectF, QSize, Qt, QSizeF
-from PyQt5.QtGui import QAbstractTextDocumentLayout, QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetrics, QIcon, QKeyEvent, QKeySequence, \
-	QMouseEvent, QMoveEvent, QMovie, QPainter, QPainterPath, QPaintEvent, QPalette, QPen, QPicture, QPixmap, QPolygonF, QResizeEvent, QScreen, \
-	QShortcutEvent, QStaticText, QTextDocument, QTextLayout, QTextLine, QValidator, QTextOption
-from PyQt5.QtWidgets import QAbstractButton, QAbstractItemView, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QGraphicsBlurEffect, \
-	QGraphicsEffect, QGridLayout, QLabel, QLayout, QLineEdit, QPushButton, QRadioButton, QScrollArea, QShortcut, QSizePolicy, QStyle, \
-	QStyledItemDelegate, QStyleOptionViewItem, QTableView, QTextEdit, QTreeView, QWidget
+from PyQt5.QtCore import QAbstractTableModel, QEvent, QItemSelection, QItemSelectionModel, QModelIndex, QObject, QPoint, QPointF, QPropertyAnimation, QRect, QRectF, QSize, QSizeF, \
+	Qt, pyqtProperty, pyqtSignal
+from PyQt5.QtGui import QAbstractTextDocumentLayout, QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetrics, QIcon, QKeyEvent, QKeySequence, QMouseEvent, QMoveEvent, QMovie, \
+	QPaintEvent, QPainter, QPainterPath, QPalette, QPen, QPicture, QPixmap, QPolygonF, QResizeEvent, QScreen, QShortcutEvent, QStaticText, QTextDocument, QTextLayout, QTextLine, \
+	QTextOption, QValidator
+from PyQt5.QtWidgets import QAbstractButton, QAbstractItemView, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QGraphicsBlurEffect, QGraphicsEffect, QGridLayout, QLabel, \
+	QLayout, QLineEdit, QPushButton, QRadioButton, QScrollArea, QShortcut, QSizePolicy, QStyle, QStyleOptionViewItem, QStyledItemDelegate, QTableView, QTextEdit, QTreeView, QWidget
 
-from ...GUI.components.catWidgetMixins import CatClickableMixin, CatFocusableMixin, CatFramedAbstractScrollAreaMixin, \
-	CatFramedAreaMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, CatStyledWidgetMixin, \
-	centerOfRect, ColorPalette, CORNERS, getBorderPath, PaintEventDebug, palettes, ShortcutMixin, UndoBlockableMixin, \
-	OverlapCharacteristics, CAN_BUT_NO_BORDER_OVERLAP
+from ..utilities import connectSafe, safeEmit
+from ...GUI.components.catWidgetMixins import CAN_BUT_NO_BORDER_OVERLAP, CORNERS, CatClickableMixin, CatFocusableMixin, CatFramedAbstractScrollAreaMixin, CatFramedAreaMixin, \
+	CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, CatStyledWidgetMixin, ColorPalette, OverlapCharacteristics, PaintEventDebug, ShortcutMixin, \
+	UndoBlockableMixin, centerOfRect, getBorderPath, palettes
 from ...GUI.components.renderArea import Pens
-from ...GUI.components.treeModel import DataTreeModel, TreeModel, TreeItemBase
-from ...GUI.utilities import connect, CrashReportWrapped, safeEmit
-
+from ...GUI.components.treeModel import DataTreeModel, TreeItemBase, TreeModel
+from ...utils.utils import CrashReportWrapped
 
 # global variables for debugging:
 DEBUG_LAYOUT: bool = False
@@ -744,8 +742,8 @@ class Int64SpinBox(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, QAbstra
 		self._cachedState: QValidator.State = QValidator.Invalid
 		self._cachedValue: int = 0
 
-		connect(self.lineEdit().editingFinished, self.onEditFinished)
-		connect(self.editingFinished, self.onEditFinished)
+		connectSafe(self.lineEdit().editingFinished, self.onEditFinished)
+		connectSafe(self.editingFinished, self.onEditFinished)
 
 	def _hasSpecialValue(self) -> bool:
 		return self.m_value == self.m_minimum and self.specialValueText()
@@ -2650,7 +2648,7 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 		self.setMinimumWidth(150)
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.setIndentation(self.indentation() * 2 // 3)
-		connect(self.customContextMenuRequested, lambda pos, s=self: s.onContextMenu(pos))
+		connectSafe(self.customContextMenuRequested, lambda pos, s=self: s.onContextMenu(pos))
 		QShortcut(QKeySequence.Copy,  self, lambda s=self: s.onCopy(), lambda: None, Qt.WidgetShortcut)
 		QShortcut(QKeySequence.Paste, self, lambda s=self: s.onPaste(), lambda: None, Qt.WidgetShortcut)
 		QShortcut(QKeySequence.Cut,   self, lambda s=self: s.onCut(), lambda: None, Qt.WidgetShortcut)

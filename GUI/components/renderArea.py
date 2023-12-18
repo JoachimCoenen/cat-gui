@@ -3,23 +3,20 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from math import atan2, copysign, cos, pi, sin, sqrt
 from itertools import zip_longest
+from math import atan2, copysign, cos, pi, sin, sqrt
 from time import perf_counter_ns
-from typing import Optional, overload, TypeVar, Iterator, Iterable, ContextManager, Union, Generic
+from typing import ContextManager, Generic, Iterable, Iterator, Optional, TypeVar, Union, overload
 
-from PyQt5.QtCore import QRect, QSize, Qt, QLineF, QPointF, QRectF
-from PyQt5.QtGui import QBrush, QFont, QPainter, QPainterPath, QPalette, QPen, QPolygonF, QPaintEvent, QPicture, \
-	QColor, QTextDocument, QTextOption, QTransform, QWheelEvent
+from PyQt5.QtCore import QLineF, QPointF, QRect, QRectF, QSize, Qt
+from PyQt5.QtGui import QBrush, QColor, QFont, QPaintEvent, QPainter, QPainterPath, QPalette, QPen, QPicture, QPolygonF, QTextDocument, QTextOption, QTransform, QWheelEvent
 from PyQt5.QtWidgets import QWidget
 
-from ...GUI.components.catWidgetMixins import CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin, CORNERS, PaintEventDebug, \
-	palettes
 from ...GUI.components.Layouts import WithBlock
-from ...GUI.utilities import CrashReportWrapped
+from ...GUI.components.catWidgetMixins import CORNERS, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin, PaintEventDebug, palettes
 from ...utils import Deprecated
 from ...utils.collections_ import Stack
-
+from ...utils.utils import CrashReportWrapped
 
 _TT = TypeVar('_TT')
 _TS = TypeVar('_TS')

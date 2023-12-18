@@ -1,44 +1,42 @@
 #  Copyright (c) 2018 Joachim Coenen. All Rights Reserved
 from __future__ import annotations
 
-from abc import abstractmethod
+import dataclasses
 import functools as ft
 import itertools
 import math
 import os
-import dataclasses
+from abc import abstractmethod
 from datetime import date
 from enum import Enum
 from types import EllipsisType
-from typing import Any, Callable, cast, ClassVar, ContextManager, Generic, Iterable, Iterator, Literal, Optional, \
-	overload, Protocol, Sequence, Type, TypeVar, Union
+from typing import Any, Callable, ClassVar, ContextManager, Generic, Iterable, Iterator, Literal, Optional, Protocol, Sequence, Type, TypeVar, Union, cast, overload
 
 from PyQt5 import QtCore, QtGui, QtWidgets, sip
-from PyQt5.QtCore import pyqtBoundSignal, QItemSelectionModel, QMargins, QObject, Qt
+from PyQt5.QtCore import QItemSelectionModel, QMargins, QObject, Qt, pyqtBoundSignal, pyqtSignal
 from PyQt5.QtGui import QFont, QFontDatabase, QIcon
 from PyQt5.QtWidgets import QApplication, QDialog, QShortcut, QSizePolicy, QWidget
 
-from ._styles import applyStyle, getStyles, Style
+from ._styles import Style, applyStyle, getStyles
 from .components import codeEditor
-from .components.catTabBar import CatTabBar, TabOptions
-from .components.catWidgetMixins import CANT_AND_NO_OVERLAP, CatFramedWidgetMixin, CatScalableWidgetMixin, \
-	CatSizePolicyMixin, CORNERS, Margins, NO_MARGINS, NO_OVERLAP, Overlap, OverlapCharacteristics, RoundedCorners, \
-	DEFAULT_PANEL_CORNER_RADIUS, KeySequenceLike, setQWidgetShortcutBase, getShortcutParent
 from .components.Layouts import *
+from .components.Widgets import BuilderTreeView, CatBox, CatButton, CatCheckBox, CatComboBox, CatElidedLabel, CatFramelessButton, CatGradiantButton, CatLabel, \
+	CatMultiLineTextField, CatOverlay, CatPanel, CatProgressBar, CatRadioButton, CatScrollArea, CatSeparator, CatTextField, CatToolButton, CatToolbarSpacer, DataBuilderTreeView, \
+	DataTableModel, DataTableView, Int64SpinBox, Spoiler, Switch
+from .components.catTabBar import CatTabBar, TabOptions
+from .components.catWidgetMixins import CANT_AND_NO_OVERLAP, CORNERS, CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, DEFAULT_PANEL_CORNER_RADIUS, \
+	KeySequenceLike, Margins, NO_MARGINS, NO_OVERLAP, Overlap, OverlapCharacteristics, RoundedCorners, getShortcutParent, setQWidgetShortcutBase
 from .components.renderArea import CatPainter, RenderArea, Vector
 from .components.treeBuilderABC import TreeBuilderABC
 from .components.treeBuilders import DataListBuilder, DataTreeBuilderNode
-from .components.Widgets import BuilderTreeView, CatBox, CatButton, CatCheckBox, CatComboBox, CatElidedLabel, \
-	CatFramelessButton, CatGradiantButton, CatLabel, CatMultiLineTextField, CatOverlay, CatPanel, CatProgressBar, \
-	CatRadioButton, CatScrollArea, CatTextField, CatToolbarSpacer, CatToolButton, DataBuilderTreeView, DataTableModel, \
-	DataTableView, Int64SpinBox, Spoiler, Switch, CatSeparator
 from .enums import *
 from .framelessWindow.catFramelessWindowMixin import CatFramelessWindowMixin
-from .utilities import connect, connectOnlyOnce, CrashReportWrapped
+from .utilities import connectOnlyOnce, connectSafe
 from ..Serializable.utils import get_args
 from ..utils import DeferredCallOnceMethod, Deprecated
-from ..utils.collections_ import AddToDictDecorator, getIfKeyIssubclass, getIfKeyIssubclassOrEqual, Stack
+from ..utils.collections_ import AddToDictDecorator, Stack, getIfKeyIssubclass, getIfKeyIssubclassOrEqual
 from ..utils.profiling import ProfiledAction, TimedAction
+from ..utils.utils import CrashReportWrapped
 
 if not hasattr(QtCore, 'Signal'):
 	QtCore.Signal = QtCore.pyqtSignal
@@ -309,8 +307,7 @@ class TabControl(StackedControl):
 
 	def __enter__(self) -> TabControl:
 		result = super().__enter__()
-		if QtCore.QObject.receivers(self._tabBar, self._tabBar.currentChanged) == 0:
-			connect(self._tabBar.currentChanged, lambda x, tabWidget=self._tabBar: self._gui.OnInputModified(tabWidget))
+		self._gui._connectOnInputModified(self._tabBar, self._tabBar.currentChanged)
 		return cast(TabControl, result)
 
 	def addTab(self, options: TabOptions, id_: Optional[str] = None, preventVStretch: bool = False, preventHStretch: bool = False, seamless: bool = False, *, contentsMargins: Margins = None, windowPanel: bool = False, **kwargs):
@@ -496,7 +493,7 @@ class MenuControl(WithBlock):
 			value()
 			self._gui.redrawGUI()
 		action = self._addAction(label, kwargs)
-		connect(action.triggered, executeAction)
+		connectSafe(action.triggered, executeAction)
 
 	def addToggle(self, label: str, value: bool, setter: Callable[[bool], None], **kwargs):
 		def executeAction(checked):
@@ -505,7 +502,7 @@ class MenuControl(WithBlock):
 		kwargs.setdefault('checkable', True)
 		kwargs.setdefault('checked', value)
 		action = self._addAction(label, kwargs)
-		connect(action.triggered, executeAction)
+		connectSafe(action.triggered, executeAction)
 
 	def addItems(self, items: Iterable[MenuItemData]):
 		for item in items:
@@ -563,7 +560,7 @@ def _connectEventListener(item: QObject, propName: str, value: Any):
 		event.disconnect()
 	elif receivers > 1:
 		raise AttributeError('too many receivers connected to signal. only one (1) is allowed.')
-	connect(event, value)
+	connectSafe(event, value)
 
 
 _SHORTCUT_SETTERS: dict[str, Callable[[QObject, KeySequenceLike, dict[str, Any]], bool]] = {}
@@ -923,12 +920,13 @@ class PythonGUI(CatScalableWidgetMixin):
 			self._logNPrint(logMessage)
 		self.redraw()
 
+	@Deprecated
 	def redrawGUILater(self) -> None:
 		self.redrawLater()
 
-	redrawGUILater = redrawLater
+	redrawGUILater = Deprecated(redrawLater)
 
-	def OnInputModified(self, modifiedWidget: Union[QWidget, QtWidgets.QLayout], data: Any = None):
+	def OnInputModified(self, modifiedWidget: QWidget | QtWidgets.QLayout, data: Any = None):
 		self._forceSecondRedraw = True
 		try:
 			self._modifiedInputStack.push(self.modifiedInput)
@@ -947,6 +945,10 @@ class PythonGUI(CatScalableWidgetMixin):
 			self._redrawGUI()  # redraw again!
 		self._isFirstRedraw = True
 		self._isLastRedraw = True
+
+	def _connectOnInputModified(self, widget: QWidget | QtWidgets.QLayout, signal: pyqtBoundSignal | pyqtSignal):
+		# pyqtSignal is in the type signature, only to make pycharms typechecker happy.
+		connectOnlyOnce(widget, signal, lambda _=None: self.OnInputModified(widget), '_OnInputModified_')
 
 	def handleKWArgsCache(self, item, kwargs):
 		if not kwargs:
@@ -1478,7 +1480,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		qLayout = panel.layout()
 		if type(qLayout) is not layoutCls.QLayoutType:
 			if qLayout is not None:
-				deleteLayout(qLayout)
+				deleteLayoutImmediately(qLayout)
 			qLayout = layoutCls.QLayoutType()
 			qLayout.setContentsMargins(*NO_MARGINS)
 			panel.setLayout(qLayout)
@@ -1545,7 +1547,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		if spoiler != self.modifiedInput[0] and spoiler.isOpen() != isOpen and isOpen is not None:
 			spoiler.setOpen(isOpen)
 
-		connectOnlyOnce(spoiler, spoiler.clicked, lambda _, spoiler=spoiler: self.OnInputModified(spoiler), '_OnInputModified_')
+		self._connectOnInputModified(spoiler, spoiler.clicked)
 
 		return spoiler.isOpen()
 
@@ -1658,7 +1660,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		else:
 			tabBar.setCurrentIndex(previouslySelected)
 
-		connectOnlyOnce(tabBar, tabBar.currentChanged, lambda x, tabBar=tabBar: self.OnInputModified(tabBar), '_OnInputModified_')
+		self._connectOnInputModified(tabBar, tabBar.currentChanged)
 
 		return tabBar.currentIndex()
 
@@ -1858,7 +1860,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		# else:
 		# 	kwargs['onInit'] = self.setMinimumFieldWidth
 		button: CatButton = self.addItem(ButtonCls, text=text, icon=icon, autoDefault=autoDefault, overlap=overlap, roundedCorners=roundedCorners, **kwargs)
-		connectOnlyOnce(button, button.clicked, lambda _, button=button: self.OnInputModified(button), '_OnInputModified_')
+		self._connectOnInputModified(button, button.clicked)
 
 		if button is not self.modifiedInput[0] and button.isCheckable() and checked is not None:
 			button.setChecked(checked)
@@ -1997,7 +1999,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		sp.setVerticalPolicy(SizePolicy.Fixed.value)
 		label.setSizePolicy(sp)
 
-		connectOnlyOnce(label, label.doubleClicked, lambda _, label=label: self.OnInputModified(label), '_OnInputModified_')
+		self._connectOnInputModified(label, label.doubleClicked)
 		if label is self.modifiedInput[0]:
 			self._forceSecondRedraw = True
 			return True
@@ -2049,7 +2051,7 @@ class PythonGUI(CatScalableWidgetMixin):
 				newCursorPosition = min(len(text), prevCursorPosition)
 			textField.setCursorPosition(newCursorPosition)
 
-		connectOnlyOnce(textField, textField.textChanged, lambda x=None, textField=textField: self.OnInputModified(textField), '_OnInputModified_')
+		self._connectOnInputModified(textField, textField.textChanged)
 		return textField.plainText()
 
 	def codeField(self, text: Optional[str], label: Optional[str] = None, isMultiline: bool = True, focusEndOfText: bool = False, overlap: Overlap = (0, 0), roundedCorners: RoundedCorners = CORNERS.NONE, **kwargs) -> str:
@@ -2252,7 +2254,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		if value is not None and intField != self.modifiedInput[0] and intField.value() != value:
 			intField.setValue(value)
 
-		connectOnlyOnce(intField, intField.valueChanged, lambda x, intField=intField: self.OnInputModified(intField), '_OnInputModified_')
+		self._connectOnInputModified(intField, intField.valueChanged)
 		return intField.value()
 
 	def intField(self, value: Optional[int], min: int = 0, max: int = +99, step: int = 1, label: Optional[str] = None, **kwargs):
@@ -2261,14 +2263,14 @@ class PythonGUI(CatScalableWidgetMixin):
 		if value is not None and intField != self.modifiedInput[0] and intField.value() != value:
 			intField.setValue(value)
 
-		connectOnlyOnce(intField, intField.valueChanged, lambda x, intField=intField: self.OnInputModified(intField), '_OnInputModified_')
+		self._connectOnInputModified(intField, intField.valueChanged)
 		return intField.value()
 
 	def floatField(self, value: Optional[float], min: float = -math.inf, max: float = +math.inf, step: float = 0.01, decimals: int = 3, label: Optional[str] = None, **kwargs):
 		floatField = self.addLabeledItem(QtWidgets.QDoubleSpinBox, label, minimum=min, maximum=max, singleStep=step, decimals=decimals, onInit=self.setMinimumFieldWidth, **kwargs)
 		if value is not None and floatField != self.modifiedInput[0] and floatField.value() != value:
 			floatField.setValue(value)
-		connectOnlyOnce(floatField, floatField.valueChanged, lambda x, floatField=floatField: self.OnInputModified(floatField), '_OnInputModified_')
+		self._connectOnInputModified(floatField, floatField.valueChanged)
 		return floatField.value()
 
 	def comboBox(self, value: Union[str, int], choices: Iterable[str], label: str = None, *, editable: bool = False, **kwargs):
@@ -2296,7 +2298,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		if comboBox != self.modifiedInput[0] and getCurrentValue() != value:
 			setCurrentValue(value)
 
-		connectOnlyOnce(comboBox, comboBox.currentTextChanged[str], lambda x: self.OnInputModified(comboBox), '_OnInputModified_')
+		self._connectOnInputModified(comboBox, comboBox.currentTextChanged[str])
 
 		return getCurrentValue()
 
@@ -2339,7 +2341,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		if comboBox != self.modifiedInput[0] and comboBox.currentFont().family() != value.family():
 			comboBox.setCurrentFont(value)
 
-		connectOnlyOnce(comboBox, comboBox.currentFontChanged, lambda x, comboBox=comboBox: self.OnInputModified(comboBox), '_OnInputModified_')
+		self._connectOnInputModified(comboBox, comboBox.currentFontChanged)
 
 		return comboBox.currentFont()
 
@@ -2361,7 +2363,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		if value is not None and dateField != self.modifiedInput[0] and dateField.date().toPyDate() != value:
 			dateField.setDate(_toQDate(value))
 
-		connectOnlyOnce(dateField, dateField.dateChanged, lambda x, dateField: self.OnInputModified(dateField), '_OnInputModified_')
+		self._connectOnInputModified(dateField, dateField.dateChanged)
 		return dateField.date().toPyDate()
 
 	def slider(self, value: int, min: int, max: int, label: Optional[str] = None, orientation=QtCore.Qt.Horizontal, **kwargs):
@@ -2370,7 +2372,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		if value is not None and slider != self.modifiedInput[0] and slider.value() != value:
 			slider.setValue(value)
 
-		connectOnlyOnce(slider, slider.valueChanged, lambda x, slider=slider: self.OnInputModified(slider), '_OnInputModified_')
+		self._connectOnInputModified(slider, slider.valueChanged)
 		return slider.value()
 
 	def scrollBar(self, value: Optional[int], docSize: int, pageStep: int, orientation=QtCore.Qt.Horizontal, **kwargs):
@@ -2379,7 +2381,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		if value is not None and slider != self.modifiedInput[0] and slider.value() != value:
 			slider.setValue(value)
 
-		connectOnlyOnce(slider, slider.valueChanged, lambda x, slider=slider: self.OnInputModified(slider), '_OnInputModified_')
+		self._connectOnInputModified(slider, slider.valueChanged)
 		return slider.value()
 
 	def checkbox(self, isChecked: Optional[BoolOrCheckState], label: Optional[str] = None, returnTristate: bool = False, **kwargs) -> BoolOrCheckState:
@@ -2402,7 +2404,7 @@ class PythonGUI(CatScalableWidgetMixin):
 				if checkbox.checkState() != isChecked.value:
 					checkbox.setCheckState(cast(Qt.CheckState, isChecked.value))
 
-		connectOnlyOnce(checkbox, checkbox.stateChanged, lambda x, chb=checkbox: self.OnInputModified(chb), '_OnInputModified_')
+		self._connectOnInputModified(checkbox, checkbox.stateChanged)
 		return checkbox.isChecked() if not returnTristate else ToggleCheckState(checkbox.checkState())
 
 	def checkboxLeft(self, isChecked: Optional[BoolOrCheckState], label: Optional[str] = None, returnTristate: bool = False, **kwargs) -> BoolOrCheckState:
@@ -2424,7 +2426,7 @@ class PythonGUI(CatScalableWidgetMixin):
 				if checkbox.checkState() != isChecked.value:
 					checkbox.setCheckState(cast(Qt.CheckState, isChecked.value))
 
-		connectOnlyOnce(checkbox, checkbox.stateChanged, lambda x, chb=checkbox: self.OnInputModified(chb), '_OnInputModified_')
+		self._connectOnInputModified(checkbox, checkbox.stateChanged)
 		return checkbox.isChecked() if not returnTristate else ToggleCheckState(checkbox.checkState())
 
 	def prefixCheckbox(self, isChecked: Optional[BoolOrCheckState], label: Optional[str] = None, returnTristate: bool = False, **kwargs) -> BoolOrCheckState:
@@ -2449,7 +2451,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		if isChecked is not None and toggle != self.modifiedInput[0] and toggle.isChecked() != isChecked:
 			toggle.setChecked(isChecked)
 
-		connectOnlyOnce(toggle, toggle.toggled, lambda x, toggle=toggle: self.OnInputModified(toggle), '_OnInputModified_')
+		self._connectOnInputModified(toggle, toggle.toggled)
 
 		return toggle.isChecked()
 
@@ -2473,7 +2475,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		if isChecked is not None and radioButton != self.modifiedInput[0] and radioButton.isChecked() != isChecked:
 			radioButton.setChecked(isChecked)
 
-		connectOnlyOnce(radioButton, radioButton.toggled, lambda x, radioButton=radioButton: self.OnInputModified(radioButton), '_OnInputModified_')
+		self._connectOnInputModified(radioButton, radioButton.toggled)
 
 		return radioButton.isChecked()
 
@@ -2501,17 +2503,16 @@ class PythonGUI(CatScalableWidgetMixin):
 			elif buttonGroup.button(currentValue) is not None:
 				buttonGroup.button(currentValue).setChecked(True)
 
-		if QtCore.QObject.receivers(buttonGroup, buttonGroup.buttonToggled[int, bool]) == 0:
-			# event gets fired twice (1x for button that turned on and 1x for button that turned off).
-			# make sure only one event triggers a redrawing:
-			connect(buttonGroup.buttonToggled[int, bool], lambda _, switchedOn: self.OnInputModified(btnGrpLayout, data=buttonGroup) if switchedOn else 0)
+		# event gets fired twice (1x for button that turned on and 1x for button that turned off).
+		# make sure only one event triggers a redrawing:
+		connectOnlyOnce(buttonGroup, buttonGroup.buttonToggled[int, bool], lambda _, switchedOn: self.OnInputModified(btnGrpLayout, data=buttonGroup) if switchedOn else 0, '_OnInputModified_')
 		return buttonGroup.checkedId()
 
 	def listField(self, index, values, label=None, valuesHaveChanged=True, **kwargs):
 		listBox = self.addLabeledItem(QtWidgets.QListView,   label, **kwargs)
 		if listBox.model() is None:
 			listBox.setModel(QtCore.QStringListModel(listBox))
-			connect(listBox.model().modelReset, lambda: self.OnInputModified(listBox.model()))
+			connectSafe(listBox.model().modelReset, lambda: self.OnInputModified(listBox.model()))
 
 		selection = listBox.selectionModel()
 		if listBox != self.modifiedInput[0]:  # and listBox.currentIndex().row() != index:
@@ -2524,9 +2525,9 @@ class PythonGUI(CatScalableWidgetMixin):
 				selection.setCurrentIndex(indexOfTheCellIWant, QtCore.QItemSelectionModel.ClearAndSelect)
 
 		# connectOnlyOnce does not work here, because sometimes the __dict__ attribute doesn't get persisted properly:
-		if QtCore.QObject.receivers(selection, selection.selectionChanged) == 1:  # '1' required here, because the QListView also connects to that sign
+		if QtCore.QObject.receivers(selection, selection.selectionChanged) == 1:  # '1' required here, because the QListView also connects to that signal
 			# connectOnlyOnce does not work here, because sometimes the __dict__ attribute doesn't get persisted properly
-			connect(selection.selectionChanged, lambda x, y: self.OnInputModified(listBox))
+			connectSafe(selection.selectionChanged, lambda x, y: self.OnInputModified(listBox))
 
 		return listBox.currentIndex().row()
 
@@ -2537,7 +2538,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		table = self.addLabeledItem(DataTableView, label, fullSize=fullSize, **kwargs)
 		if table.model() is None:
 			table.setModel(DataTableModel(table, headers))
-			connect(table.model().modelReset, lambda: self.OnInputModified(table.model()))
+			connectSafe(table.model().modelReset, lambda: self.OnInputModified(table.model()))
 
 		table.verticalHeader().setVisible(False)
 		table.horizontalHeader().setStretchLastSection(True)
@@ -2605,9 +2606,9 @@ class PythonGUI(CatScalableWidgetMixin):
 		# connectOnlyOnce does not work here, because sometimes the __dict__ attribute doesn't get persisted properly:
 		if QtCore.QObject.receivers(selectionModel, selectionModel.selectionChanged) == 2:
 			# connectOnlyOnce does not work here, because sometimes the __dict__ attribute doesn't get persisted properly
-			connect(selectionModel.selectionChanged, lambda new, old, gui=self, treeWidget=treeWidget: gui.OnInputModified(selectionModel))
+			connectSafe(selectionModel.selectionChanged, lambda new, old: self.OnInputModified(selectionModel))
 
-		connectOnlyOnce(treeWidget, treeWidget.dataChanged, lambda gui=self, treeWidget=treeWidget: gui.OnInputModified(treeWidget), '_OnInputModified_')
+		self._connectOnInputModified(treeWidget, treeWidget.dataChanged)
 
 		index = selectionModel.currentIndex()
 		selectedItem: Optional[_TT] = index.internalPointer().getData(0) if index.isValid() else None
@@ -2629,7 +2630,7 @@ class PythonGUI(CatScalableWidgetMixin):
 			except Exception as e:
 				if str(e)[0:19] != "disconnect() failed" and str(e)[9:32] != "object is not connected":
 					raise e
-			connect(progressSignal, progressBar.setValue)
+			connectSafe(progressSignal, progressBar.setValue)
 
 	@overload
 	def customWidget(self, widgetInstance: _TQWidget, label: Optional[str] = None, **kwargs) -> _TQWidget:

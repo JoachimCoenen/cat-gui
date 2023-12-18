@@ -4,21 +4,20 @@ import copy
 import enum
 from dataclasses import dataclass, field, replace
 from math import log10
-from typing import ItemsView, Iterable, Iterator, NamedTuple, NewType, Optional, Protocol, TYPE_CHECKING, Union, Type, final
+from typing import ItemsView, Iterable, Iterator, NamedTuple, NewType, Optional, Protocol, TYPE_CHECKING, Type, Union, final
 
 from PyQt5 import Qsci, sip
 from PyQt5.Qsci import QsciAPIs, QsciLexer, QsciScintilla
-from PyQt5.QtCore import pyqtSignal, QRect, Qt, QPoint
+from PyQt5.QtCore import QPoint, QRect, Qt, pyqtSignal
 from PyQt5.QtGui import QBrush, QColor, QMouseEvent
 from PyQt5.QtWidgets import QShortcut
 
-from ...GUI.components.catWidgetMixins import CatFocusableMixin, CatFramedAbstractScrollAreaMixin, CatSizePolicyMixin, \
-	CatStyledWidgetMixin, CORNERS, palettes, UndoBlockableMixin
-from ...GUI.utilities import connect, connectOnlyOnce, CrashReportWrapped
-from ...utils import DocEnum, override, HTMLStr
+from ..utilities import connectOnlyOnce, connectSafe
+from ...GUI.components.catWidgetMixins import CORNERS, CatFocusableMixin, CatFramedAbstractScrollAreaMixin, CatSizePolicyMixin, CatStyledWidgetMixin, UndoBlockableMixin, palettes
+from ...utils import DocEnum, HTMLStr, override
 from ...utils.collections_ import AddToDictDecorator, OrderedDict, Stack
 from ...utils.profiling import logWarning
-
+from ...utils.utils import CrashReportWrapped
 
 if TYPE_CHECKING:
 	from ...GUI import PythonGUI
@@ -489,19 +488,19 @@ class CodeEditor(
 		self.setCaretLineBackgroundColor(QColor(brightness, brightness, brightness))
 
 		self.setMarginLineNumbers(1, True)
-		connect(self.linesChanged, lambda self=self: self._onLinesChanged())
+		connectSafe(self.linesChanged, lambda self=self: self._onLinesChanged())
 		self.setFolding(QsciScintilla.PlainFoldStyle)
 
-		connect(self.cursorPositionChanged, self._onCursorPositionChanged)
+		connectSafe(self.cursorPositionChanged, self._onCursorPositionChanged)
 		self.cursorPositionChanged = self.cursorPositionChanged_
 		self._cursorPosition: tuple[int, int] = (0, 0)  # see `getCursorPosition()`
 
-		connect(self.selectionChanged, self._onSelectionChanged)
+		connectSafe(self.selectionChanged, self._onSelectionChanged)
 		self._selection: tuple[int, int, int, int] = (-1, -1, -1, -1)  # see `getSelection()`
 
-		connect(self.textChanged, self._onTextChanged)
-		connect(self.indicatorClicked, self._onIndicatorClicked)
-		connect(self.userListActivated, self._onUserListActivated)
+		connectSafe(self.textChanged, self._onTextChanged)
+		connectSafe(self.indicatorClicked, self._onIndicatorClicked)
+		connectSafe(self.userListActivated, self._onUserListActivated)
 
 		self.setAutoCompletionThreshold(1)
 		self.setAutoCompletionSource(QsciScintilla.AcsAPIs)

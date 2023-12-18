@@ -2,21 +2,22 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import replace
-from typing import Callable, Generic, Optional, Type, TYPE_CHECKING, TypeVar, Union
+from typing import Callable, Generic, Optional, TYPE_CHECKING, Type, TypeVar, Union
 
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import pyqtSignal, QEvent, QRectF, Qt, QTimer
-from PyQt5.QtGui import QColor, qGray, QHideEvent, QIcon, QPainter, QPaintEvent, QPixmap, QShowEvent, QWindow
-from PyQt5.QtWidgets import qApp, QLayout, QWidget
+from PyQt5.QtCore import QEvent, QRectF, Qt, pyqtSignal
+from PyQt5.QtGui import QColor, QHideEvent, QIcon, QPaintEvent, QPainter, QPixmap, QShowEvent, QWindow, qGray
+from PyQt5.QtWidgets import QLayout, QWidget, qApp
 
-from ...GUI.components.catWidgetMixins import adjustOverlap, ColorSet, CORNERS, INNER_CORNERS, InnerCorners, joinCorners, joinInnerCorners, \
-	joinOverlap, Margins, maskCorners, NO_MARGINS, Overlap, palettes, RoundedCorners, CLEAR_COLOR_COLOR_SET, selectInnerCorners, DEFAULT_WINDOW_CORNER_RADIUS
 from . import framelessWindowsManager
 from .utilities import getDefaultAppIcon
+from ..utilities import connectSafe
+from ...GUI.components.Widgets import CatButton, CatFramelessButton, CatWindowMixin
+from ...GUI.components.catWidgetMixins import CLEAR_COLOR_COLOR_SET, CORNERS, ColorSet, DEFAULT_WINDOW_CORNER_RADIUS, INNER_CORNERS, InnerCorners, Margins, NO_MARGINS, Overlap, \
+	RoundedCorners, adjustOverlap, joinCorners, joinInnerCorners, joinOverlap, maskCorners, palettes, selectInnerCorners
 from ...GUI.enums import SizePolicy
 from ...GUI.icons import icons
-from ...GUI.components.Widgets import CatButton, CatFramelessButton, CatWindowMixin
-from ...GUI.utilities import connect, CrashReportWrapped
+from ...utils.utils import CrashReportWrapped, runLaterSafe
 
 
 # PythonGUIWidget:      onGUI, GuiCls, parent
@@ -193,9 +194,9 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 		self._titleBar: Optional[QWidget] = None
 		self._toolbarInTitleBar: Optional[QWidget] = None
 		self._ignoredToolbarObjects: list[QWidget] = []
-		connect(self._minimizeBtn.clicked, CrashReportWrapped(lambda _, s=self: s.showMinimized()))
-		connect(self._maximizeBtn.clicked, CrashReportWrapped(lambda _, s=self: s.showNormal() if s.isMaximized() or s.isFullScreen() else s.showMaximized()))
-		connect(self._closeBtn.clicked, CrashReportWrapped(lambda _, s=self: s.close()))
+		connectSafe(self._minimizeBtn.clicked, lambda _, s=self: s.showMinimized())
+		connectSafe(self._maximizeBtn.clicked, lambda _, s=self: s.showNormal() if s.isMaximized() or s.isFullScreen() else s.showMaximized())
+		connectSafe(self._closeBtn.clicked, lambda _, s=self: s.close())
 
 		self.borderSize = (9, 9, 9, 9)
 		self._shadowMargins = (13, 13 , 13, 13)
@@ -224,11 +225,11 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 
 		self.layout().setContentsMargins(*NO_MARGINS)
 
-		# QTimer.singleShot(5, self.redraw)
+		# runLaterSafe(5, self.redraw)
 
-		connect(self.windowIconChanged, lambda x, s=self: s.redraw)
-		connect(self.windowTitleChanged, lambda x, s=self: s.redraw)
-		connect(self.windowStateChanged, self.onWindowStateChanged )
+		connectSafe(self.windowIconChanged, lambda x, s=self: s.redraw())
+		connectSafe(self.windowTitleChanged, lambda x, s=self: s.redraw())
+		connectSafe(self.windowStateChanged, self.onWindowStateChanged )
 		# connect(self.titleBarWidget.iconButton, &QPushButton.clicked, self, &MainWindow.displaySystemMenu)
 
 	if TYPE_CHECKING:
@@ -617,7 +618,7 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 						self.OnBottombarGUI(gui)
 		else:
 			contentsMargins = self._contentMargins
-			with gui.vPanel(overlap=overlap, roundedCorners=roundedCorners, cornerRadius=self.windowCornerRadius, windowPanel=True, seamless=self.disableContentMargins , contentsMargins=contentsMargins):
+			with gui.vPanel(overlap=overlap, roundedCorners=roundedCorners, cornerRadius=self.windowCornerRadius, windowPanel=True, seamless=self.disableContentMargins, contentsMargins=contentsMargins):
 				self.OnGUI(gui)
 
 	def redraw(self):
@@ -656,8 +657,8 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 				# self._addIgnoreObject(self._closeBtn)
 				self._isInited = True
 		self.redraw()
-		if self._initGeometry != None:
-			QTimer.singleShot(1, lambda geo=self._initGeometry: self.setInitialGeometry(*geo))
+		if self._initGeometry is not None:
+			runLaterSafe(1, lambda geo=self._initGeometry: self.setInitialGeometry(*geo))
 			self._initGeometry = None
 
 	@CrashReportWrapped

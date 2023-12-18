@@ -12,7 +12,7 @@ Used by [Datapack Editor](https://github.com/JoachimCoenen/Datapack-Editor).
 ### Example
 ```python
     class ExampleMainWindow(CatFramelessWindowMixin, QDialog):
-    	def OnGUI(self, gui: AutoGUI):
+        def OnGUI(self, gui: AutoGUI):
             with gui.hLayout():
                 name = gui.textField(None, label="name")
                 if gui.button(f"greet {name}"):

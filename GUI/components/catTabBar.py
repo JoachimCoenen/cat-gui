@@ -4,17 +4,16 @@ from dataclasses import dataclass, field, replace
 from functools import reduce
 from typing import Callable, List, NewType, Optional
 
-from PyQt5.QtCore import pyqtSignal, QEvent, QLine, QLineF, QPoint, QRect, QRectF, QSize, Qt
-from PyQt5.QtGui import QBrush, QColor, QCursor, QFont, QHelpEvent, QIcon, QKeyEvent, QKeySequence, QMouseEvent, \
-	QPainter, QPainterPath, QPaintEvent, QPen, QResizeEvent, QTransform, QWheelEvent
+from PyQt5.QtCore import QEvent, QLine, QLineF, QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt5.QtGui import QBrush, QColor, QCursor, QFont, QHelpEvent, QIcon, QKeyEvent, QKeySequence, QMouseEvent, QPaintEvent, QPainter, QPainterPath, QPen, QResizeEvent, \
+	QTransform, QWheelEvent
 from PyQt5.QtWidgets import QApplication, QStyle, QToolTip, QWhatsThis, QWidget
 
-from ...GUI.components.catWidgetMixins import CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, \
-	CatStyledWidgetMixin, Margins, maskCorners, PaintEventDebug, palettes, PreciseOverlap, RoundedCorners, \
-	ShortcutMixin, CatFocusableMixin
-from ...GUI.enums import SizePolicy, TabPosition, TAB_POSITION_EAST_WEST
-from ...GUI.utilities import CrashReportWrapped
+from ...GUI.components.catWidgetMixins import CatFocusableMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, \
+	CatSizePolicyMixin, CatStyledWidgetMixin, Margins, PaintEventDebug, PreciseOverlap, RoundedCorners, ShortcutMixin, maskCorners, palettes
+from ...GUI.enums import SizePolicy, TAB_POSITION_EAST_WEST, TabPosition
 from ...utils import Deprecated
+from ...utils.utils import CrashReportWrapped
 
 Fixed64 = NewType('Fixed64', int)
 

@@ -21,18 +21,18 @@
 # SOFTWARE.
 
 from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QEvent, QObject, QPointF, Qt
 from PyQt5.QtGui import QMouseEvent, QTouchEvent, QWindow
-
 from PyQt5.QtWidgets import QWidget
 
 from .utilities import isMouseInSpecificObjects
-from ...GUI.utilities import CrashReportWrapped
+from ...utils.utils import CrashReportWrapped
 
 
 def getMousePositions(e: QMouseEvent) -> QPointF:

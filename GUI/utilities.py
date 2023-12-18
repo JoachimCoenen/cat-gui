@@ -1,61 +1,56 @@
 from collections import defaultdict
-from functools import wraps
 from typing import Callable, DefaultDict, Dict, Optional, Union
 
 from PyQt5 import sip
-from PyQt5.QtCore import pyqtBoundSignal, pyqtSignal, QObject, QTimer
+from PyQt5.QtCore import QObject, pyqtBoundSignal, pyqtSignal
 
-from ..utils import Decorator, format_full_exc
-from ..utils.profiling import logError, ProfiledAction
-
-
-def __onCrash__(exception):
-	pass
-
-onCrash = __onCrash__
+from ..utils.logging_ import logDebug, logError
+from ..utils.utils import CrashReportWrapped, isCrashReportWrapped, runLaterSafe
 
 
-def connect(signal, slot):
-	def wrappedSlot(*args, slot__=slot, **kwargs):
-		try:
-			slot__(*args, **kwargs)
-		except Exception as e:
-			#slot(1)
-			print(format_full_exc())
-			logError(format_full_exc())
-			onCrash(e)
-			raise
-	return signal.connect(wrappedSlot)
+def connectUnsafe(signal, slot):
+	if isCrashReportWrapped(slot):
+		raise TypeError(f"expected a CrashReportWrapped callable, but got {slot}")
+	return signal.connect(slot)
 
 
-def disconnect(obj: QObject):
+def connectSafe(signal, slot):
+	return signal.connect(CrashReportWrapped(slot))
+
+
+def disconnect(obj: QObject | pyqtSignal):
 	try:
 		obj.disconnect()
 	except TypeError as e:
 		print(f"  {e}")
+		logDebug(f"  {e}")
 		pass
 
 
 def disconnectAndDeleteLater(obj: QObject):
-	#print(f"disconnectAndDeleteLater()")
-	#print(f"  {type(obj)}")
 	try:
 		obj.disconnect()
 	except TypeError as e:
 		print(f"  {e}")
+		logDebug(f"  {e}")
 		pass
-	#print(f"  disconnected")
-	# obj.setParent(None)
-	# print(f"  parent is None")
-	#QTimer.singleShot(0, lambda ob=obj: ob.deleteLater())
-	#obj.deleteLater()
-	# QApplication.processEvents(QEventLoop.ProcessEventsFlag(0), 30)
-	# QApplication.sendPostedEvents()
-	# QApplication.processEvents(QEventLoop.ProcessEventsFlag(0), 30)
-	# print(f"  eventsProcessed")
 
-	QTimer.singleShot(10, lambda obj=obj: obj.deleteLater() if not sip.isdeleted(obj) else None)  # bad practice, but necessary in order to reasonably make sure that all signals have been handled :'(
-	#print(f"  deletedLater scheduled")
+	runLaterSafe(10, lambda: obj.deleteLater() if not sip.isdeleted(obj) else None)  # bad practice, but necessary in order to reasonably make sure that all signals have been handled :'(
+
+
+def disconnectAndDeleteImmediately(obj: QObject):
+	"""
+	Potentially DANGEROUS!
+	"""
+	try:
+		obj.disconnect()
+	except TypeError as e:
+		print(f"  {e}")
+		logError(e)
+		pass
+	if not sip.isdeleted(obj):
+		sip.delete(obj)
+		#obj.deleteLater()
 
 
 QTSlot = Callable
@@ -76,7 +71,7 @@ def connectOnlyOnce(obj: QObject, signal: pyqtBoundSignal | pyqtSignal, slot: QT
 	slotsForSignal = connectedSlots[signal.signal]
 	if slotID not in slotsForSignal:
 		slotsForSignal[slotID] = slot
-		connect(signal, slot)
+		connectSafe(signal, slot)
 
 
 def saveDisconnect(obj: QObject, signal: pyqtBoundSignal, slotID: QTSlotID):
@@ -99,60 +94,4 @@ def saveDisconnect(obj: QObject, signal: pyqtBoundSignal, slotID: QTSlotID):
 def safeEmit(self: QObject, signal: Union[pyqtBoundSignal, pyqtSignal], *args) -> None:
 	if not sip.isdeleted(self):
 		signal.emit(*args)
-
-
-class CrashReportWrappedProfiledAction(ProfiledAction):
-	def __init__(self, name: str, threshold_percent: float = 1., report_interval: float = 5., colourNodesBySelftime: bool = False , enabled: bool = True):
-		super(CrashReportWrappedProfiledAction, self).__init__(name, threshold_percent, report_interval, colourNodesBySelftime, enabled)
-		#self.__isProfiling: bool = False
-		self.__callDepth: int = 0
-
-	def __enter__(self):
-		#return
-		self.__callDepth += 1
-		if self.__callDepth == 1:
-			super(CrashReportWrappedProfiledAction, self).__enter__()
-
-	def __exit__(self, exc_type, exc_val, exc_tb):
-		#return
-		self.__callDepth -= 1
-		if self.__callDepth == 0:
-			super(CrashReportWrappedProfiledAction, self).__exit__(exc_type, exc_val, exc_tb)
-
-
-_crashReportWrappedProfiledAction = CrashReportWrappedProfiledAction('CrashReportWrapped')
-_lableStr = None
-@Decorator
-def CrashReportWrapped(func=None, *, lable=None, labelle=None):
-	global _lableStr
-	if func is None:
-		_lableStr = lable
-		labelle = lable
-		return lambda f: CrashReportWrapped(f, labelle=labelle)
-
-	#func = MethodCallCounter(enabled=True, minPrintCount=5000)(func)
-	@wraps(func)
-	def call(*args, labelle=labelle, **kwargs):
-		# if labelle==_lableStr:
-		# 	with _crashReportWrappedProfiledAction:
-		# 		try:
-		# 			return func(*args, **kwargs)
-		# 		except Exception as e:
-		# 			#slot(1)
-		# 			print(format_full_exc())
-		# 			logError(format_full_exc())
-		# 			onCrash(e)
-		# 			raise
-		# else:
-		try:
-			return func(*args, **kwargs)
-		except Exception as e:
-			# slot(1)
-			print(format_full_exc())
-			logError(format_full_exc())
-			onCrash(e)
-			raise
-	call.__CrashReportWrapped__ = True
-	return call
-
 

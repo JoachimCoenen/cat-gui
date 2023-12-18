@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import itertools as it
 import os
 import platform
@@ -9,16 +10,15 @@ import weakref
 from collections import defaultdict
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, ContextManager, Generic, IO, Iterable, Iterator, Optional, overload, Tuple, Type, TYPE_CHECKING, TypeVar, Union
+from typing import Any, Callable, ContextManager, Generic, IO, Iterable, Iterator, Optional, TYPE_CHECKING, Tuple, Type, TypeVar, Union, overload
 from warnings import warn
 
 try:
-	from PyQt5.QtCore import Qt, QTimer
+	from PyQt5.QtCore import Qt, QTimer, pyqtBoundSignal
 	from PyQt5.QtWidgets import QApplication
 except ImportError:
 	HAS_QT = False
-	Qt, QTimer = None, None
-	QApplication = None
+	Qt = QTimer = QApplication = pyqtBoundSignal = None
 else:
 	HAS_QT = True
 
@@ -27,6 +27,12 @@ _TCallable = TypeVar('_TCallable', bound=Callable)
 _TT = TypeVar('_TT')
 _TD = TypeVar('_TD')
 _TR = TypeVar('_TR')
+
+
+def __onCrash__(exception):
+	pass
+
+onCrash = __onCrash__
 
 
 if True:  # Anything, Nothing, Everything
@@ -145,8 +151,63 @@ if True:
 			object.__setattr__(instance, self._func.__name__, value)
 			return value
 
+	@Decorator
+	def CrashReportWrapped(func=None, *, labelle=None):
+		if func is None:
+			return lambda f: CrashReportWrapped(f, labelle=labelle)
+
+		if isCrashReportWrapped(func):
+			return func  # no need to wrap twice
+
+		@wraps(func)
+		def call(*args, **kwargs):
+			try:
+				return func(*args, **kwargs)
+			except Exception as e:
+				print(format_full_exc())
+				from cat.utils.logging_ import logError
+				logError(format_full_exc())
+				onCrash(e)
+				raise
+		call.__CrashReportWrapped__ = True
+		return call
+
+
+	def isCrashReportWrapped(slot: Callable) -> bool:
+		return getattr(slot, '__CrashReportWrapped__', False) is True
+
 
 if QTimer is not None and Qt is not None:
+
+	@overload
+	def runLaterSafe(msec: int, func: Callable[[], None] | pyqtBoundSignal, /) -> None:
+		"""
+		Schedule func() to be run in about msec milliseconds. Requires a running Qt event loop.
+		:param msec:
+		:param func:
+		:return:
+		"""
+		...
+
+	@overload
+	def runLaterSafe(msec: int, timerType: Qt.TimerType, func: Callable[[], None] | pyqtBoundSignal, /) -> None:
+		...
+
+	__sentinel = object()
+
+	def runLaterSafe(arg1, arg2, arg3=__sentinel) -> None:
+		"""
+		:param arg1: `msec: int` milliseconds.
+		:param arg2: either `func: Callable[[], None] | pyqtBoundSignal` or `timerType: Qt.TimerType`.
+		:param arg3: `func: Callable[[], None] | pyqtBoundSignal` if arg2 is timerType else NOT SET.
+		:return:
+		"""
+		if arg3 is __sentinel:
+			QTimer.singleShot(arg1, CrashReportWrapped(arg2))
+		else:
+			QTimer.singleShot(arg1, arg2, CrashReportWrapped(arg3))
+
+
 	class _DeferredCall:
 		def __init__(self, decorator: DeferredCallOnceMethod, instance):
 			self._decorator: DeferredCallOnceMethod = decorator
@@ -211,7 +272,7 @@ if QTimer is not None and Qt is not None:
 			self._pending.add(id(instance))
 
 			forInstance = weakref.ref(instance)
-			QTimer.singleShot(
+			runLaterSafe(
 				self._delay,
 				Qt.CoarseTimer,
 				lambda: self._asyncCall(version, forInstance, args, kwargs)
@@ -315,7 +376,7 @@ if True:
 				doc = None
 			return _makeDeprecated(funcMethodOrClass, doc=doc, msg=msg)
 		else:
-			return lambda funcMethodOrClass, doc=None, msg=msg: _makeDeprecated(funcMethodOrClass, doc=doc, msg=msg)
+			return lambda funcMethodOrClass: _makeDeprecated(funcMethodOrClass, doc=None, msg=msg)
 
 
 # Files and Directories, os specific, ...:
@@ -442,8 +503,8 @@ if True:
 
 	INVALID_PATH_CHARS = r'\/:*?"<>|'
 	_INVALID_PATH_CHARS_ESCAPED = INVALID_PATH_CHARS\
-			.replace('\\', '\\\\')\
-			.replace(']', '\\]')
+		.replace('\\', '\\\\')\
+		.replace(']', '\\]')
 	INVALID_PATH_CHARS_PATTERN = re.compile(
 		rf'[{_INVALID_PATH_CHARS_ESCAPED}]'
 	)
@@ -700,6 +761,8 @@ if True:
 		return indentMultilineStr(text, indent=indentLvl).s
 
 __all__ = [
+	'onCrash',
+
 	'Anything',
 	'Nothing',
 	'Everything',
@@ -712,6 +775,10 @@ __all__ = [
 
 	'Decorator',
 	'CachedProperty',
+
+	'CrashReportWrapped',
+	'isCrashReportWrapped',
+	'runLaterSafe',
 
 	'DeferredCallOnceMethod',
 	'BusyIndicator',

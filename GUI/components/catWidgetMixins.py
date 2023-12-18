@@ -1,21 +1,22 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 import copy
 import operator
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Callable, cast, NamedTuple, Optional, TYPE_CHECKING, Union, TypeAlias
+from typing import Callable, NamedTuple, Optional, TYPE_CHECKING, TypeAlias, Union, cast
 
 from PyQt5 import sip
-from PyQt5.QtCore import pyqtSignal, QEvent, QMargins, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer
-from PyQt5.QtGui import QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetrics, qGray, QImage, QKeySequence, QLinearGradient, QMouseEvent, \
-	QPaintDevice, QPainter, QPainterPath, QPaintEvent, QPen, QResizeEvent, QStaticText, QShortcutEvent, QPalette
-from PyQt5.QtWidgets import QFrame, QLayout, QScrollBar, QSizePolicy, QWidget, QShortcut, QApplication
+from PyQt5.QtCore import QEvent, QMargins, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt5.QtGui import QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetrics, QImage, QKeySequence, QLinearGradient, QMouseEvent, QPaintDevice, QPaintEvent, QPainter, \
+	QPainterPath, QPalette, QPen, QResizeEvent, QShortcutEvent, QStaticText, qGray
+from PyQt5.QtWidgets import QApplication, QFrame, QLayout, QScrollBar, QShortcut, QSizePolicy, QWidget
 
-from ...GUI.utilities import CrashReportWrapped, safeEmit, connect
+from ..utilities import connectSafe, disconnect, safeEmit
 from ...utils import Decorator
 from ...utils.profiling import MethodCallCounter
+from ...utils.utils import CrashReportWrapped, runLaterSafe
 
 # global variables for debugging:
 DO_DEBUG_PAINT_EVENT: bool = False
@@ -297,20 +298,20 @@ def setQWidgetShortcutBase(item: QObject, shortcutParent: QWidget, shortcutConte
 			currentShortcut.setParent(cast(QWidget, None))
 			currentShortcut.deleteLater()
 
-		connect(item.destroyed, itemDestroyed)
+		connectSafe(item.destroyed, itemDestroyed)
 		setattr(item, '__currentShortcut', currentShortcut)
 	else:
-		currentShortcut.activated.disconnect()
-		currentShortcut.activatedAmbiguously.disconnect()
+		disconnect(currentShortcut.activated)
+		disconnect(currentShortcut.activatedAmbiguously)
 
 	currentShortcut.setKey(key)
 	currentShortcut.setParent(shortcutParent)
 	currentShortcut.setContext(shortcutContext)
-	connect(
+	connectSafe(
 		currentShortcut.activated,
 		lambda: (onShortcut(currentShortcut, False) if not sip.isdeleted(item) else None)
 	)
-	connect(
+	connectSafe(
 		currentShortcut.activatedAmbiguously,
 		lambda: (onShortcut(currentShortcut, False) if not sip.isdeleted(item) else None)
 	)
@@ -483,8 +484,8 @@ class CatScalableWidgetMixin:
 		widthOfContents = self.getDefaultSize("", iconsCount, paddingsCount).width()
 		return max(0, size.width() - widthOfContents)
 
-	@staticmethod
 	@CrashReportWrapped
+	@staticmethod
 	def updateGeometryCall(self):
 		self.updateGeometry()
 
@@ -500,7 +501,7 @@ class CatScalableWidgetMixin:
 		newScale = dpiFactor * fontSizeFactor * baseScale
 		if self._scale != newScale:
 			self._scale = newScale
-			QTimer.singleShot(1, lambda: (CatScalableWidgetMixin.updateGeometryCall(self) if not (isinstance(self, QObject) and sip.isdeleted(self)) else None))
+			runLaterSafe(1, lambda: (CatScalableWidgetMixin.updateGeometryCall(self) if not (isinstance(self, QObject) and sip.isdeleted(self)) else None))
 
 
 OverlapCharTpl = tuple[bool, bool, bool]
