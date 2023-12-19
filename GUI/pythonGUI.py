@@ -149,7 +149,7 @@ class CenteredBlock(WithBlock):
 		return super().__exit__(exc_type, exc_value, traceback)
 
 
-class SeamlessQStackedWidget(QtWidgets.QStackedWidget, CatFramedWidgetMixin):
+class SeamlessQStackedWidget(QtWidgets.QStackedWidget, CatFramedWidgetMixin, CatSizePolicyMixin):
 
 	def __init__(self, *args):
 		super(SeamlessQStackedWidget, self).__init__(*args)
@@ -354,7 +354,7 @@ class TabControl(StackedControl):
 		self._tabBar.setCurrentIndex(index)
 
 
-class SeamlessQSplitter(QtWidgets.QSplitter, CatFramedWidgetMixin):
+class SeamlessQSplitter(QtWidgets.QSplitter, CatFramedWidgetMixin, CatSizePolicyMixin):
 
 	def __init__(self, *args):
 		super(SeamlessQSplitter, self).__init__(*args)
@@ -1026,6 +1026,12 @@ class PythonGUI(CatScalableWidgetMixin):
 		except AttributeError:
 			pass
 		try:
+			cm = item.viewportMargins()
+			cm = (cm.left(), cm.top(), cm.right(), cm.bottom())
+			infos.append(f'viewportMargins = {cm}')
+		except AttributeError:
+			pass
+		try:
 			hs = item.layout().horizontalSpacing()
 			vs = item.layout().verticalSpacing()
 			spacing = (hs, vs)
@@ -1254,7 +1260,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		"""
 		return Indentation(self)
 
-	def vLayout1C(self, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> SingleColumnLayout | SeamlessSingleColumnLayout:
+	def vLayout1C(self, label: Optional[str] = None, *, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> SingleColumnLayout | SeamlessSingleColumnLayout:
 		"""
 		Creates a vertical layout with the labels *above* the widgets (single column). has to be used in an ``with`` statement (``with gui.vLayout1C():``).
 		Everything within the with statement will be inside the vertical layout.
@@ -1266,10 +1272,10 @@ class PythonGUI(CatScalableWidgetMixin):
 
 		"""
 		layoutCls = getSingleColumnLayout(seamless)
-		qLayout = self.addItem(layoutCls.QLayoutType, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing, **kwargs)
+		qLayout = self.addLabeledItem(layoutCls.QLayoutType, label, fullSize=fullSize, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing, **kwargs)
 		return layoutCls(self, qLayout, preventVStretch, preventHStretch)
 
-	def vLayout(self, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> DoubleColumnLayout | SeamlessDoubleColumnLayout:
+	def vLayout(self, label: Optional[str] = None, *, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> DoubleColumnLayout | SeamlessDoubleColumnLayout:
 		"""
 		Creates a vertical layout with the labels *next to* the widgets (typically on the left). has to be used in an ``with`` statement (``with gui.vLayout():``).
 		Everything within the with statement will be inside the vertical layout.
@@ -1280,10 +1286,10 @@ class PythonGUI(CatScalableWidgetMixin):
 				gui.label(f'Hello there, {name}!')
 		"""
 		layoutCls = getDoubleColumnLayout(seamless)
-		qLayout = self.addItem(layoutCls.QLayoutType, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing, **kwargs)
+		qLayout = self.addLabeledItem(layoutCls.QLayoutType, label, fullSize=fullSize, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing, **kwargs)
 		return layoutCls(self, qLayout, preventVStretch, preventHStretch)
 
-	def hLayout(self, label: Optional[str] = None, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> SingleRowLayout | SeamlessSingleRowLayout:
+	def hLayout(self, label: Optional[str] = None, *, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> SingleRowLayout | SeamlessSingleRowLayout:
 		"""
 		Creates a horizontal layout with the labels *next to* the widgets  (single row). has to be used in an ``with`` statement (``with gui.hLayout():``).
 		Everything within the with statement will be inside the horizontal layout.
@@ -1297,7 +1303,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		qLayout = self.addLabeledItem(layoutCls.QLayoutType, label, fullSize=fullSize, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing, **kwargs)
 		return layoutCls(self, qLayout, preventVStretch, preventHStretch)
 
-	def hLayout2R(self, label=None, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> DoubleRowLayout | SeamlessDoubleRowLayout:
+	def hLayout2R(self, label=None, *, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> DoubleRowLayout | SeamlessDoubleRowLayout:
 		"""
 		Creates a horizontal layout with the labels *above* the widgets. has to be used in an ``with`` statement (``with gui.hLayout2R():``).
 		Everything within the with statement will be inside the horizontal layout.
