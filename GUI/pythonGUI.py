@@ -1717,7 +1717,8 @@ class PythonGUI(CatScalableWidgetMixin):
 	def editor(self, editor: Type[TEditor], model: _TT, *, seamless: bool = False, **kwargs) -> TEditor:
 		# def editor(self, editor: Type[EditorBase[_TT]], model: _TT, *, seamless: bool = False, **kwargs) -> EditorBase[_TT]:
 		deferBorderFinalization = False  # hasattr(self.currentLayout._qLayout, 'finalizeBorders')
-		editor2 = self.customWidget(editor, initArgs=(model, type(self), seamless, deferBorderFinalization), model=model, **kwargs)
+		editor2 = self.customWidget(editor, initArgs=(model, type(self), seamless, deferBorderFinalization), **kwargs)
+		editor2.setModel(model)
 		return editor2
 
 	def box(self, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, **kwargs):

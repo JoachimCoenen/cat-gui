@@ -199,7 +199,7 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 		connectSafe(self._closeBtn.clicked, lambda _, s=self: s.close())
 
 		self.borderSize = (9, 9, 9, 9)
-		self._shadowMargins = (13, 13 , 13, 13)
+		self._shadowMargins = (13, 13, 13, 13)
 		self.borderMargin = (
 			self._shadowMargins[0] - self.borderSize[0] + 2,
 			self._shadowMargins[1] - self.borderSize[1] + 2,
@@ -227,8 +227,8 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 
 		# runLaterSafe(5, self.redraw)
 
-		connectSafe(self.windowIconChanged, lambda x, s=self: s.redraw())
-		connectSafe(self.windowTitleChanged, lambda x, s=self: s.redraw())
+		connectSafe(self.windowIconChanged, lambda x, s=self: s.redrawLater('windowIconChanged'))
+		connectSafe(self.windowTitleChanged, lambda x, s=self: s.redrawLater('windowTitleChanged'))
 		connectSafe(self.windowStateChanged, self.onWindowStateChanged )
 		# connect(self.titleBarWidget.iconButton, &QPushButton.clicked, self, &MainWindow.displaySystemMenu)
 
@@ -623,6 +623,9 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 
 	def redraw(self):
 		self._gui.redrawGUI()
+
+	def redrawLater(self, cause: Optional[str] = None):
+		self._gui.redrawLater(cause)
 
 	@CrashReportWrapped
 	def paintEvent(self, event: QPaintEvent) -> None:

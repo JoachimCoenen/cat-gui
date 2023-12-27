@@ -34,12 +34,12 @@ _toXmlAttributeSingleQuoteTrans = str.maketrans({
 	})
 
 
-def escapeForXml(text: str) -> str:
-	return text.translate(_toXmlTrans)
+def escapeForXml(text: str) -> HTMLStr:
+	return HTMLStr(text.translate(_toXmlTrans))
 
 
-def escapeForXmlTextContent(text: str) -> str:
-	return text.translate(_toXmlTextContentTrans)
+def escapeForXmlTextContent(text: str) -> HTMLStr:
+	return HTMLStr(text.translate(_toXmlTextContentTrans))
 
 
 def unescapeFromXmlTextContent(xmlText: str) -> str:
