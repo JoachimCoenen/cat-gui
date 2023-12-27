@@ -1376,16 +1376,16 @@ class PythonGUI(CatScalableWidgetMixin):
 		"""
 		return CenteredBlock(self.addVSpacer)
 
-	def hCentered2(self, label: Optional[str] = None, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> SingleRowLayout | SeamlessSingleRowLayout:
+	def hCentered2(self, label: Optional[str] = None, *, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> SingleRowLayout | SeamlessSingleRowLayout:
 		"""
 		Centers contained widgets horizontally.
 		::
 			with gui.hCentered2():
 				gui.helpBox("To come in a future version.")
 		"""
-		return self.hCentered().surroundWithBlock(self.hLayout(label, fullSize, preventVStretch, preventHStretch, verticalSpacing, horizontalSpacing, seamless, **kwargs))
+		return self.hCentered().surroundWithBlock(self.hLayout(label, fullSize=fullSize, preventVStretch=preventVStretch, preventHStretch=preventHStretch, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing, seamless=seamless, **kwargs))
 
-	def vCentered2(self, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> DoubleColumnLayout | SeamlessDoubleColumnLayout:
+	def vCentered2(self, label: Optional[str] = None, *, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> DoubleColumnLayout | SeamlessDoubleColumnLayout:
 		"""
 		Centers contained widgets vertically.
 		::
@@ -1394,7 +1394,7 @@ class PythonGUI(CatScalableWidgetMixin):
 				gui.vSeparator()
 				gui.label("Bottom half of the page")
 		"""
-		return self.vCentered().surroundWithBlock(self.vLayout(preventVStretch, preventHStretch, verticalSpacing, horizontalSpacing, seamless, **kwargs))
+		return self.vCentered().surroundWithBlock(self.vLayout(label, fullSize=fullSize, preventVStretch=preventVStretch, preventHStretch=preventHStretch, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing, seamless=seamless, **kwargs))
 
 	def groupBox(self, title: str, *, selectable: bool = False, addSeparator: bool = False, **kwargs):
 		"""
