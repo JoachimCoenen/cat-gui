@@ -435,8 +435,11 @@ class MyQsciAPIs(QsciAPIs):
 	def indicatorClicked(self, position: CEPosition, state: Qt.KeyboardModifiers) -> None:
 		pass
 
+	def wordCharacters(self) -> str:
+		return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+
 	def autoCompletionWordSeparators(self) -> list[str]:
-		return ['.']  # ':', '#', '.']
+		return []  # ':', '#', '.']
 
 
 # ====== CodeEditor class: ======
@@ -488,7 +491,7 @@ class CodeEditor(
 		self.setCaretLineBackgroundColor(QColor(brightness, brightness, brightness))
 
 		self.setMarginLineNumbers(1, True)
-		connectSafe(self.linesChanged, lambda self=self: self._onLinesChanged())
+		connectSafe(self.linesChanged, lambda: self._onLinesChanged())
 		self.setFolding(QsciScintilla.PlainFoldStyle)
 
 		connectSafe(self.cursorPositionChanged, self._onCursorPositionChanged)
@@ -758,6 +761,8 @@ class CodeEditor(
 		if ctx:
 			# make sure, that the last word in ctx is actually split correctly!
 			wordSeps = self.wordSeparators
+			if wordSeps is None:
+				wordSeps = ()
 
 			ctx2 = []
 			for ws in wordSeps:
