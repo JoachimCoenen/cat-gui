@@ -1,8 +1,10 @@
-from typing import NamedTuple, TypeVar, _type_repr
+from typing import AbstractSet, NamedTuple, TypeVar, _type_repr, Protocol
 
 from ..utils.utils import Decorator
 
 _TT = TypeVar('_TT')
+_TK_co = TypeVar("_TK_co", covariant=True)
+_TV_co = TypeVar("_TV_co", covariant=True)
 
 
 typeRepr = _type_repr
@@ -49,10 +51,15 @@ def override(func: _TT) -> _TT:
 	return func
 
 
+class SupportsItems(Protocol[_TK_co, _TV_co]):
+	def items(self) -> AbstractSet[tuple[_TK_co, _TV_co]]: ...
+
+
 __all__ = [
 	'typeRepr',
 	'NoneType',
 	'is_namedtuple',
 	'replace_tuple',
 	'override',
+	'SupportsItems',
 ]
