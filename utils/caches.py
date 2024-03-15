@@ -2,10 +2,12 @@ import sys
 from _weakrefset import WeakSet
 from abc import abstractmethod
 from collections import defaultdict
+from types import EllipsisType
 from typing import AbstractSet, Any, Callable, cast, Container, Generic, Hashable, Protocol, Sized, TypeVar, Union
 
-from ..utils.collections_ import OrderedDict
-from ..utils.typing_ import override, typeRepr
+from .utils import Decorator
+from .collections_ import OrderedDict
+from .typing_ import override, typeRepr
 
 _TT = TypeVar('_TT')
 _TD = TypeVar('_TD')
@@ -290,23 +292,33 @@ class GlobalGeneratingCache(GeneratingCache[_TK, _TT], GlobalCache[_TK, _TT], Ge
 		raise NotImplementedError('a global cache cannot be copied')
 
 
-class CachedGenerator(Generic[_TT]):
-	__sentinel = object()
-
-	def __init__(self, generator: Callable[[], _TT]):
-		self._generator: Callable[[], _TT] = generator
-		self._storage: _TT = self.__sentinel
+class _CachedGeneratorBase(Generic[_TT]):
+	def __init__(self, cache: GeneratingCache[EllipsisType, _TT]):
+		self._cache: GeneratingCache[EllipsisType, _TT] = cache
 
 	def __call__(self) -> _TT:
-		if self._storage == self.__sentinel:
-			self._storage = self._generator()
-		return self._storage
+		return self._cache.getOrGenerate(...)
 
 	def reset(self) -> None:
-		self._storage = self.__sentinel
+		self._cache.reset()
 
 	def clear(self) -> None:
-		self._storage = self.__sentinel
+		self._cache.clear()
+
+
+class CachedGenerator(_CachedGeneratorBase[_TT], Generic[_TT]):
+	def __init__(self, generator: Callable[[], _TT]):
+		super().__init__(GeneratingCache(lambda _: generator(), maxSize=1))
+
+
+class _GlobalCachedGenerator(_CachedGeneratorBase[_TT], Generic[_TT]):
+	def __init__(self, name: str, generator: Callable[[], _TT]):
+		super().__init__(GlobalGeneratingCache(name, lambda _: generator(), maxSize=1))
+
+
+@Decorator
+def GlobalCachedGenerator(*, name: str) -> Callable[[Callable[[], _TT]], _GlobalCachedGenerator[_TT]]:
+	return lambda generator: _GlobalCachedGenerator(name, generator)
 
 
 def formatCacheStats(caches: list[PGlobalCache]) -> str:
@@ -348,5 +360,6 @@ __all__ = [
 	'GeneratingCache',
 	'GlobalGeneratingCache',
 	'CachedGenerator',
+	'GlobalCachedGenerator',
 	'formatCacheStats',
 ]
