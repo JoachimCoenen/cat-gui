@@ -134,6 +134,9 @@ class Stack(list[_TV], Generic[_TV]):
 	def peek(self) -> _TV:
 		return self[-1]
 
+	def peekn(self, n: int) -> _TV:
+		return self[-n-1]
+
 	def copy(self) -> Stack[_TV]:
 		result = type(self)(self)
 		return result
