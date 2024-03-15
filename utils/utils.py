@@ -36,19 +36,22 @@ onCrash = __onCrash__
 
 
 if True:  # Anything, Nothing, Everything
-	def Anything():
+	class Anything:
 		""" Denotes Anyhing (=^= not None, at least one)."""
-		return Anything
+		def __new__(cls, *args, **kwargs):
+			return Anything
 
 
-	def Nothing():
+	class Nothing:
 		""" Denotes Nothing (non existent, not even None)."""
-		return Nothing
+		def __new__(cls, *args, **kwargs):
+			return Nothing
 
 
-	def Everything():
+	class Everything:
 		""" Denotes All (not just Some)."""
-		return Everything
+		def __new__(cls, *args, **kwargs):
+			return Everything
 
 SINGLETON_FIELD = '__singleton__'
 
@@ -150,6 +153,7 @@ if True:
 			value = self._func(instance)
 			object.__setattr__(instance, self._func.__name__, value)
 			return value
+
 
 	@Decorator
 	def CrashReportWrapped(func=None, *, labelle=None):

@@ -288,7 +288,7 @@ def fromJSONDict(cls: Type[_TT], jsonDict: dict, memo: MemoForDeserialization, p
 				if shouldDeferLoading(field):
 					setLater.append(field)
 					if field.init is True and field.default is MISSING and field.default_factory is MISSING:
-						kwArgs[name] = Nothing()
+						kwArgs[name] = Nothing
 				else:
 					jsonValue: Any = jsonDict[serializedName]
 					try:
