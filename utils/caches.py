@@ -67,7 +67,7 @@ class PGlobalCache(_PCacheBase[_TK, _TT], Protocol[_TK, _TT]):
 
 	@property
 	@abstractmethod
-	def _argsForStrArgs(self) -> OrderedDict[str, str]: ...
+	def _argsForStrArgs(self) -> dict[str, str]: ...
 
 
 class _CacheBase(Generic[_TK, _TT]):
@@ -174,15 +174,8 @@ class _CacheBase(Generic[_TK, _TT]):
 		return self._storage.__contains__(key)
 
 	@property
-	def _argsForStrArgs(self) -> OrderedDict[str, str]:
-		args = OrderedDict()
-		args['maxSize'] = f"{-1 if self.maxSize == DEFAULT_MAX_SIZE else self.maxSize:_}"
-		args['pressure'] = f"{len(self) / self.maxSize: _.1%}"
-		args['entries'] = f"{len(self):_}"
+	def _argsForStrArgs(self) -> dict[str, str]:
 		hitsNMisses = self.hits + self.misses
-		args['hitRate'] = f"{(self.hits / hitsNMisses) if hitsNMisses > 0 else 0: _.1%}"
-		args['hits'] = f"{self.hits:_}"
-		args['misses'] = f"{self.misses:_}"
 
 		def summerPart(arg):  # λx: partial(summer, x)
 			return lambda arg2: sum(map(arg, arg2))
@@ -192,9 +185,16 @@ class _CacheBase(Generic[_TK, _TT]):
 			summer = summerPart(summer)
 
 		sumLen = summer(self._storage.values())
-		args['nestedEntries'] = f"{sumLen:_}"
 
-		return args
+		return {
+			'maxSize': f"{-1 if self.maxSize == DEFAULT_MAX_SIZE else self.maxSize:_}",
+			'pressure': f"{len(self) / self.maxSize: _.1%}",
+			'entries': f"{len(self):_}",
+			'hitRate': f"{(self.hits / hitsNMisses) if hitsNMisses > 0 else 0: _.1%}",
+			'hits': f"{self.hits:_}",
+			'misses': f"{self.misses:_}",
+			'nestedEntries':  f"{sumLen:_}",
+		}
 
 	@property
 	def _argsForStr2(self) -> str:
@@ -250,10 +250,9 @@ class GlobalCache(Cache[_TK, _TT], Generic[_TK, _TT]):
 
 	@override
 	@property
-	def _argsForStrArgs(self) -> OrderedDict[str, str]:
-		args = super(GlobalCache, self)._argsForStrArgs
-		args['name'] = f"{self.name!r}"
-		args.move_to_end('name', False)
+	def _argsForStrArgs(self) -> dict[str, str]:
+		args = {'name': f"{self.name!r}"}
+		args.update(super(GlobalCache, self)._argsForStrArgs)
 		return args
 
 
