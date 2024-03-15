@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import collections
 import functools as ft
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Callable, Generic, Hashable, Iterable, Mapping, MutableMapping, overload, Protocol, Reversible, \
 	SupportsIndex, TypeVar, Union, Any
@@ -159,31 +159,6 @@ class Stack(list[_TV], Generic[_TV]):
 	def __repr__(self) -> str:
 		val = super(Stack, self).__repr__()
 		return f"{type(self).__name__}({val})"
-
-
-class OrderedDict(Generic[_TK, _TV], collections.OrderedDict[_TK, _TV]):
-	""" Dictionary that remembers insertion order'
-
-		An inherited dict maps keys to values.
-		The inherited dict provides __getitem__, __len__, __contains__, and get.
-		The remaining methods are order-aware.
-		Big-O running times for all methods are the same as regular dictionaries.
-
-		The internal self.__map dict maps keys to links in a doubly linked list.
-		The circular doubly linked list starts and ends with a sentinel element.
-		The sentinel element never gets deleted (this simplifies the algorithm).
-		The sentinel is in self.__hardroot with a weakref proxy in self.__root.
-		The prev links are weakref proxies (to prevent circular references).
-		Individual links are kept alive by the hard reference in self.__map.
-		Those hard references disappear when a key is deleted from an OrderedDict.
-	"""
-
-	def __init__(self, other: Iterable[tuple[_TK, _TV]] = (), /, **kwds: _TV):
-		"""Initialize an ordered dictionary. The signature is the same as
-		regular dictionaries. Keyword argument order is preserved.
-		"""
-		super(OrderedDict, self).__init__(other, **kwds)
-	pass
 
 
 @dataclass

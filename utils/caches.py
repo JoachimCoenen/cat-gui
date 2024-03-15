@@ -1,12 +1,11 @@
 import sys
 from _weakrefset import WeakSet
 from abc import abstractmethod
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from types import EllipsisType
 from typing import AbstractSet, Any, Callable, cast, Container, Generic, Hashable, Protocol, Sized, TypeVar, Union
 
 from .utils import Decorator
-from .collections_ import OrderedDict
 from .typing_ import override, typeRepr
 
 _TT = TypeVar('_TT')

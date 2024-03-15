@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import enum
+from collections import OrderedDict
 from dataclasses import dataclass, field, replace
 from math import log10
 from typing import ItemsView, Iterable, Iterator, NamedTuple, NewType, Optional, Protocol, TYPE_CHECKING, Type, Union, final
@@ -15,7 +16,7 @@ from PyQt5.QtWidgets import QShortcut
 from ..utilities import connectOnlyOnce, connectSafe
 from ...GUI.components.catWidgetMixins import CORNERS, CatFocusableMixin, CatFramedAbstractScrollAreaMixin, CatSizePolicyMixin, CatStyledWidgetMixin, UndoBlockableMixin, palettes
 from ...utils import DocEnum, HTMLStr, override
-from ...utils.collections_ import AddToDictDecorator, OrderedDict, Stack
+from ...utils.collections_ import AddToDictDecorator, Stack
 from ...utils.profiling import logWarning
 from ...utils.utils import CrashReportWrapped
 
@@ -62,7 +63,7 @@ class AutoCompletionTree:
 
 	def addTree(self, other: AutoCompletionTree):
 		prefix = self.qName + self.separator
-		childIterators: Stack[Iterator[ItemsView[str, AutoCompletionTree]]] = Stack()
+		childIterators: Stack[Iterator[tuple[str, AutoCompletionTree]]] = Stack()
 		newChildrenStack: Stack[OrderedDict[str, AutoCompletionTree]] = Stack()
 		prefixStack: Stack[str] = Stack()
 

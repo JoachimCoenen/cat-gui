@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import dataclasses
 from typing import Any, final, IO, Callable, Optional, Mapping, Type, Union
 
-from .collections_ import AddToDictDecorator, Stack, getIfKeyIssubclassOrEqual, OrderedDict, OrderedMultiDict
+from .collections_ import AddToDictDecorator, Stack, getIfKeyIssubclassOrEqual, OrderedMultiDict
 
 import collections
 
@@ -31,7 +31,7 @@ FormattingFunc = Callable[[Any, int, Mapping[type, 'FormattingFunc'], str, str, 
 _valueFormatters: dict[type, FormattingFunc] = {}
 Formatter = AddToDictDecorator(_valueFormatters)
 
-_predicatedValueFormatters: OrderedDict[Callable[[type], bool], FormattingFunc] = OrderedDict()
+_predicatedValueFormatters: collections.OrderedDict[Callable[[type], bool], FormattingFunc] = collections.OrderedDict()
 PredicatedFormatter = AddToDictDecorator(_predicatedValueFormatters)
 
 
