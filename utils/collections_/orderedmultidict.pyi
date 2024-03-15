@@ -121,7 +121,7 @@ class OrderedMultiDict(
 	def clear(self):
 		pass
 
-	def get(self, key, default: _TT = None) -> Union[_TV, _TT]:
+	def get(self, key: _TK,  default: _TT = None) -> Union[_TV, _TT]:
 		""" same as getFirst(...)
 		:param key:
 		:param default:
@@ -129,7 +129,7 @@ class OrderedMultiDict(
 		"""
 		pass
 
-	def getFirst(self, key, default: _TT = None) -> Union[_TV, _TT]:
+	def getFirst(self, key: _TK, default: _TT = None) -> Union[_TV, _TT]:
 		""" same as get(...)
 		:param key:
 		:param default:
@@ -137,10 +137,10 @@ class OrderedMultiDict(
 		"""
 		pass
 
-	def getLast(self, key, default: _TT = None) -> Union[_TV, _TT]:
+	def getLast(self, key: _TK, default: _TT = None) -> Union[_TV, _TT]:
 		pass
 
-	def getall(self, key, default: _TT = []) -> Union[list[_TV], _TT]:
+	def getall(self, key: _TK, default: _TT = []) -> Union[list[_TV], _TT]:
 		"""
 		Returns: The list of values for <key> if <key> is in the dictionary,
 		else <default>. If <default> is not provided, an empty list is
