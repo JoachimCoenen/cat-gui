@@ -8,7 +8,7 @@ from functools import lru_cache
 from typing import Callable, NamedTuple, Optional, TYPE_CHECKING, TypeAlias, Union, cast
 
 from PyQt5 import sip
-from PyQt5.QtCore import QEvent, QMargins, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt5.QtCore import QEvent, QMargins, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetrics, QImage, QKeySequence, QLinearGradient, QMouseEvent, QPaintDevice, QPaintEvent, QPainter, \
 	QPainterPath, QPalette, QPen, QResizeEvent, QShortcutEvent, QStaticText, qGray
 from PyQt5.QtWidgets import QApplication, QFrame, QLayout, QScrollBar, QShortcut, QSizePolicy, QWidget
@@ -278,14 +278,40 @@ class CatFocusableMixin:
 	focusLost = pyqtSignal(Qt.FocusReason)
 
 	@CrashReportWrapped
-	def focusInEvent(self: QWidget, event: QFocusEvent) -> None:
+	def focusInEvent(self: QWidget | CatFocusableMixin, event: QFocusEvent) -> None:
 		super(CatFocusableMixin, self).focusInEvent(event)
 		safeEmit(self, self.focusReceived, event.reason())
 
 	@CrashReportWrapped
-	def focusOutEvent(self: QWidget, event: QFocusEvent) -> None:
+	def focusOutEvent(self: QWidget | CatFocusableMixin, event: QFocusEvent) -> None:
 		super(CatFocusableMixin, self).focusOutEvent(event)
 		safeEmit(self, self.focusLost, event.reason())
+
+
+class CatChildrenFocusableMixin:
+	childFocusReceived = pyqtSignal()
+	childFocusLost = pyqtSignal()
+
+	def __init__(self, *args, **kwargs) -> None:
+		super().__init__(*args, **kwargs)
+		qApp = cast(QApplication, QApplication.instance())
+		connectSafe(qApp.focusChanged, self._applicationOnFocusChanged)
+
+	@pyqtSlot('QWidget*', 'QWidget*')
+	@CrashReportWrapped
+	def _applicationOnFocusChanged(self: QWidget | CatChildrenFocusableMixin, from_: QWidget, to: QWidget) -> None:
+		if self == to or self._isParentOf(to):  # a child (or self) is focused
+			safeEmit(self, self.childFocusReceived)
+		elif self == from_ or self._isParentOf(from_):  # a child (or self) lost focus
+			safeEmit(self, self.childFocusLost)
+
+	def _isParentOf(self, widget: QWidget) -> bool:
+		w = widget
+		while w is not None:
+			w = w.parentWidget()
+			if w == self:  # widget is a strict child of self.
+				return True
+		return False
 
 
 _NO_SHORTCUT_ID = 0
