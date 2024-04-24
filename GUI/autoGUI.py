@@ -31,7 +31,7 @@ class AutoGUI(PythonGUI):
 		return container
 
 	def serializableContainerArea(self, container: SerializableDataclass, hasLabel: bool = True, label: Optional[str] = None, enabled: bool = True, **kwargs):
-		if self.spoiler(label=label, enabled=enabled, **kwargs):
+		if self.spoiler(label=label or '', enabled=enabled, **kwargs):
 			with self.indentation():
 				return self.simpleSerializableDataclassArea(container, enabled=enabled, **kwargs)
 		return container
