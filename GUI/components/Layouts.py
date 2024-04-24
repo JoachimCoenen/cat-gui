@@ -11,8 +11,9 @@ from typing import Any, Callable, Generic, Iterable, List, NamedTuple, Optional,
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QGridLayout, QLayout, QLayoutItem, QSizePolicy, QSpacerItem, QWidget
 
-from ...GUI.components.catWidgetMixins import CatFramedWidgetMixin, Overlap, OverlapCharTpl, OverlapCharacteristics, RoundedCorners
-from ...GUI.utilities import disconnectAndDeleteImmediately, disconnectAndDeleteLater
+from ...GUI.components.catWidgetMixins import CatFramedWidgetMixin, Overlap, OverlapCharacteristics, RoundedCorners, \
+	OverlapCharTpl, CANT_AND_NO_OVERLAP
+from ...GUI.utilities import disconnectAndDeleteLater, disconnectAndDeleteImmediately
 from ...utils import format_full_exc
 
 if TYPE_CHECKING:
@@ -694,6 +695,11 @@ _NONE_SIZE_POLICY_TUPLE = SizePolicyTuple(cast(QSizePolicy.Policy, None), cast(Q
 _EMPTY_TUPLE = ()
 
 
+class ItemPosition(NamedTuple):
+	row: slice
+	col: slice
+
+
 class SeamlessQGridLayout(QGridLayout, CatFramedWidgetMixin):
 	def __init__(self, parent: QWidget = None):
 		super().__init__(parent)
@@ -701,6 +707,7 @@ class SeamlessQGridLayout(QGridLayout, CatFramedWidgetMixin):
 		self.setVerticalSpacing(0)
 		self.setHorizontalSpacing(0)
 		self._overlapCharacteristics: Optional[OverlapCharacteristics] = None
+		self._isSeamlessInside: bool = True
 
 	def addWidget(self, w: QWidget, *args) -> None:
 		super(SeamlessQGridLayout, self).addWidget(w, *args)
@@ -740,55 +747,96 @@ class SeamlessQGridLayout(QGridLayout, CatFramedWidgetMixin):
 			print(format_full_exc(e))
 			raise
 
-	def finalizeBorders(self):
-		self.finalizeBorders2New()
+	def finalizeBorders(self) -> None:
+		if self._isSeamlessInside:
+			self.finalizeBorders2New()
+		else:
+			self.resetBorders2New()
 
-	def finalizeBorders1Old(self):
+	def finalizeBorders2New(self) -> None:
 		self.setVerticalSpacing(0)
 		self.setHorizontalSpacing(0)
 		olp = self.overlap()
 		crn = self.roundedCorners()
-		lastCol = self.columnCount() - 1
-		lastRow = self.rowCount() - 1
+
+		framedItemsAtCol, framedItemsAtRow, getIsLTRB = self._collectItems()
+
 		for i in range(self.count()):
 			framed = _framedForItem(self.itemAt(i))
 			if framed is None:
 				continue
 
-			row, col, rowSpan, colSpan = self.getItemPosition(i)
-			isL = col == 0
-			isR = col + colSpan - 1 == lastCol
-			isT = row == 0
-			isB = row + rowSpan - 1 == lastRow
+			itemPos = self.getItemPos(i)
+			isLTRB = getIsLTRB(itemPos)
 
-			itemL = _framedForItem(self.itemAtPosition(row, col - 1))
-			itemT = _framedForItem(self.itemAtPosition(row - 1, col))
-			itemR = _framedForItem(self.itemAtPosition(row, col + colSpan))
-			itemB = _framedForItem(self.itemAtPosition(row + rowSpan, col))
+			if self._isSeamlessInside:
+				otherOlpLTRB = self.getOtherOlpLTRB(itemPos, framedItemsAtCol, framedItemsAtRow, isLTRB)
+			else:
+				otherOlpLTRB = CANT_AND_NO_OVERLAP
 
-			otherOlpL = (False, False, False) if itemL is None else itemL.overlapCharacteristics.right
-			otherOlpT = (False, False, False) if itemT is None else itemT.overlapCharacteristics.bottom
-			otherOlpR = (False, False, False) if itemR is None else itemR.overlapCharacteristics.left
-			otherOlpB = (False, False, False) if itemB is None else itemB.overlapCharacteristics.top
+			overlap, corners = calculateBorderInfo(framed.overlapCharacteristics, otherOlpLTRB, isLTRB, olp, crn, (1, 1))
 
-			overlap, corners = calculateBorderInfo(framed.overlapCharacteristics, otherOlpL, otherOlpT, otherOlpR, otherOlpB, isL, isT, isR, isB, olp, crn, (1, 1))
 			finalizeBorders(framed, overlap, corners)
 
-	def finalizeBorders2New(self):
+	def getItemPos(self, i: int) -> ItemPosition:
+		"""
+		like .getItemPosition(i), but returns a ItemPosition object.
+		"""
+		row, col, rowSpan, colSpan = self.getItemPosition(i)
+		itemPos = ItemPosition(slice(row, row + rowSpan), slice(col, col + colSpan))
+		return itemPos
+
+	def getOtherOlpLTRB(
+			self,
+			itemPos: ItemPosition,
+			framedItemsAtCol: Callable[[slice, int], list[Optional[CatFramedWidgetMixin]]],
+			framedItemsAtRow: Callable[[int, slice], list[Optional[CatFramedWidgetMixin]]],
+			isLTRB: tuple[bool, bool, bool, bool]
+	) -> tuple[OverlapCharTpl, OverlapCharTpl, OverlapCharTpl, OverlapCharTpl]:
+		itemsL = framedItemsAtCol(itemPos.row, itemPos.col.start - 1) if not isLTRB[0] else _EMPTY_TUPLE  # why  -1?
+		itemsT = framedItemsAtRow(itemPos.row.start - 1, itemPos.col) if not isLTRB[1] else _EMPTY_TUPLE  # why  -1?
+		itemsR = framedItemsAtCol(itemPos.row, itemPos.col.stop) if not isLTRB[2] else _EMPTY_TUPLE
+		itemsB = framedItemsAtRow(itemPos.row.stop, itemPos.col) if not isLTRB[3] else _EMPTY_TUPLE
+		otherOlpL = (False, False, False) if not itemsL else getOverlapCharacteristics2(itemsL, 2)  # =^ itemL.overlapCharacteristics.right
+		otherOlpT = (False, False, False) if not itemsT else getOverlapCharacteristics2(itemsT, 3)  # =^ itemT.overlapCharacteristics.bottom
+		otherOlpR = (False, False, False) if not itemsR else getOverlapCharacteristics2(itemsR, 0)  # =^ itemR.overlapCharacteristics.left
+		otherOlpB = (False, False, False) if not itemsB else getOverlapCharacteristics2(itemsB, 1)  # =^ itemB.overlapCharacteristics.top
+		return otherOlpL, otherOlpT, otherOlpR, otherOlpB
+
+	def resetBorders2New(self) -> None:
 		self.setVerticalSpacing(0)
 		self.setHorizontalSpacing(0)
 		olp = self.overlap()
 		crn = self.roundedCorners()
+
+		framedItemsAtCol, framedItemsAtRow, getIsLTRB = self._collectItems()
+
+		for i in range(self.count()):
+			framed = _framedForItem(self.itemAt(i))
+			if framed is None:
+				continue
+
+			itemPos = self.getItemPos(i)
+			isLTRB = getIsLTRB(itemPos)
+
+			otherOlp = (False, False, False)
+			otherOlpLTRB = OverlapCharacteristics(otherOlp, otherOlp, otherOlp, otherOlp)
+			overlap, corners = calculateBorderInfo(framed.overlapCharacteristics, otherOlpLTRB, isLTRB, olp, crn, (1, 1))
+			finalizeBorders(framed, overlap, corners)
+
+	def _collectItems(self) -> tuple[
+		Callable[[slice, int], list[Optional[CatFramedWidgetMixin]]],
+		Callable[[int, slice], list[Optional[CatFramedWidgetMixin]]],
+		Callable[[ItemPosition], tuple[bool, bool, bool, bool]]
+	]:
 		cCnt = self.columnCount()
 		rCnt = self.rowCount()
-
 		# rowCount() and columnCount() does not return the number of actually used rows / columns, but rather the number of allocated rows / columns.
 		# see also: https://stackoverflow.com/questions/13405997/delete-a-row-from-qgridlayout
 		actualRCnt = 0
 		actualCCnt = 0
 		actualRStart = 999999
 		actualCStart = 999999
-
 		_framedItemsAtPos = []
 		for col in range(cCnt):
 			for row in range(rCnt):
@@ -799,7 +847,6 @@ class SeamlessQGridLayout(QGridLayout, CatFramedWidgetMixin):
 					actualRCnt = max(actualRCnt, row + 1)
 					actualCStart = min(actualCStart, col)
 					actualRStart = min(actualRStart, row)
-
 		actualCStart = min(actualCStart, actualCCnt)
 		actualRStart = min(actualRStart, actualRCnt)
 
@@ -813,29 +860,15 @@ class SeamlessQGridLayout(QGridLayout, CatFramedWidgetMixin):
 			selItems = _framedItemsAtPos[sel]
 			return list(filter(None, selItems))
 
-		for i in range(self.count()):
-			framed = _framedForItem(self.itemAt(i))
-			if framed is None:
-				continue
+		def isLTRB(itemPos: ItemPosition) -> tuple[bool, bool, bool, bool]:
+			# row: int, col: int, rowSpan: int, colSpan: int
+			isL = itemPos.col.start <= actualCStart
+			isR = itemPos.col.stop == actualCCnt
+			isT = itemPos.row.start <= actualRStart
+			isB = itemPos.row.stop == actualRCnt
+			return isL, isT, isR, isB
 
-			row, col, rowSpan, colSpan = self.getItemPosition(i)
-			isL = col <= actualCStart
-			isR = col + colSpan == actualCCnt
-			isT = row <= actualRStart
-			isB = row + rowSpan == actualRCnt
-
-			itemsL = framedItemsAtCol(slice(row, row+rowSpan),       col - 1) if not isL else _EMPTY_TUPLE
-			itemsT = framedItemsAtRow(      row - 1,           slice(col, col+colSpan)) if not isT else _EMPTY_TUPLE
-			itemsR = framedItemsAtCol(slice(row, row+rowSpan),       col + colSpan) if not isR else _EMPTY_TUPLE
-			itemsB = framedItemsAtRow(      row + rowSpan,     slice(col, col+colSpan)) if not isB else _EMPTY_TUPLE
-
-			otherOlpL = (False, False, False) if not itemsL else getOverlapCharacteristics2(itemsL, 2)  # =^ itemL.overlapCharacteristics.right
-			otherOlpT = (False, False, False) if not itemsT else getOverlapCharacteristics2(itemsT, 3)  # =^ itemT.overlapCharacteristics.bottom
-			otherOlpR = (False, False, False) if not itemsR else getOverlapCharacteristics2(itemsR, 0)  # =^ itemR.overlapCharacteristics.left
-			otherOlpB = (False, False, False) if not itemsB else getOverlapCharacteristics2(itemsB, 1)  # =^ itemB.overlapCharacteristics.top
-
-			overlap, corners = calculateBorderInfo(framed.overlapCharacteristics, otherOlpL, otherOlpT, otherOlpR, otherOlpB, isL, isT, isR, isB, olp, crn, (1, 1))
-			finalizeBorders(framed, overlap, corners)
+		return framedItemsAtCol, framedItemsAtRow, isLTRB
 
 	def updateSizePolicyForWidget(self, wd: QWidget):
 		spt = self._recalculateSizePolicy()
@@ -1004,9 +1037,15 @@ def calculateBorderInfoSimple(isL: bool, isR: bool, isT: bool, isB: bool, olp: O
 	return overlap, corners
 
 
-def calculateBorderInfo(center: OverlapCharacteristics, oL: OverlapCharTpl, oT: OverlapCharTpl, oR: OverlapCharTpl, oB: OverlapCharTpl, isL: bool, isT: bool, isR: bool, isB: bool, olp: Overlap, crn: RoundedCorners, internalOverlap: tuple[int, int]):
+def calculateBorderInfo(center: OverlapCharacteristics, otherOlpLTRB: OverlapCharacteristics, isLTRB: tuple[bool, bool, bool, bool], olp: Overlap, crn: RoundedCorners, internalOverlap: tuple[int, int]):
+	"""
+	:param: c: center, OverlapCharacteristics of the widget we want to calculate the BorderInfo of.
+	:param: otherOlpLTRB: OverlapCharacteristics of the touching widgets/layouts
+	"""
 	# oL, oT, oR, oB = otherLeft, other, Top, otherRight, otherBottom
 	# OverlapCharTpl = (can, req, has) aka. (can overlap, requires overlap, has border over full length
+	isL, isT, isR, isB = isLTRB
+	oL, oT, oR, oB = otherOlpLTRB
 	c = center
 	overlap = (
 		#                                         (i can)     ( we need overlap )         (prefer r / b border & other can)
@@ -1025,7 +1064,7 @@ def calculateBorderInfo(center: OverlapCharacteristics, oL: OverlapCharTpl, oT: 
 	return overlap, corners
 
 
-def finalizeBorders(item: QLayout | QWidget, overlap: Overlap, corners: RoundedCorners) -> None:
+def finalizeBorders(item: QLayout | QWidget | CatFramedWidgetMixin, overlap: Overlap, corners: RoundedCorners) -> None:
 	layout: QLayout = item.layout()
 	if isinstance(item, CatFramedWidgetMixin):
 		item.setOverlap(overlap)
@@ -1038,7 +1077,6 @@ def finalizeBorders(item: QLayout | QWidget, overlap: Overlap, corners: RoundedC
 		item.finalizeBorders()
 	elif hasattr(layout, 'finalizeBorders'):
 		layout.finalizeBorders()
-
 
 
 class SeamlessQSingleColumnLayout(SeamlessQGridLayout):
