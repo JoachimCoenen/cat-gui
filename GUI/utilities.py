@@ -2,19 +2,23 @@ from collections import defaultdict
 from typing import Callable, DefaultDict, Dict, Optional, Union
 
 from PyQt5 import sip
-from PyQt5.QtCore import QObject, pyqtBoundSignal, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtBoundSignal, pyqtSignal, pyqtSlot
 
 from ..utils.logging_ import logDebug, logError
 from ..utils.utils import CrashReportWrapped, isCrashReportWrapped, runLaterSafe
 
 
-def connectUnsafe(signal, slot):
+QTSlot = Callable
+QTSlotID = str
+
+
+def connectUnsafe(signal, slot: QTSlot):
 	if isCrashReportWrapped(slot):
 		raise TypeError(f"expected a CrashReportWrapped callable, but got {slot}")
 	return signal.connect(slot)
 
 
-def connectSafe(signal, slot):
+def connectSafe(signal: pyqtBoundSignal | pyqtSignal, slot: QTSlot):
 	return signal.connect(CrashReportWrapped(slot))
 
 
@@ -22,8 +26,8 @@ def disconnect(obj: QObject | pyqtSignal):
 	try:
 		obj.disconnect()
 	except TypeError as e:
-		print(f"  {e}")
-		logDebug(f"  {e}")
+		print(f"  {e} for type {type(obj)}")
+		logDebug(f"  {e} for type {type(obj)}")
 		pass
 
 
@@ -31,8 +35,8 @@ def disconnectAndDeleteLater(obj: QObject):
 	try:
 		obj.disconnect()
 	except TypeError as e:
-		print(f"  {e}")
-		logDebug(f"  {e}")
+		print(f"  {e} for type {type(obj)}")
+		logDebug(f"  {e} for type {type(obj)}")
 		pass
 
 	runLaterSafe(10, lambda: obj.deleteLater() if not sip.isdeleted(obj) else None)  # bad practice, but necessary in order to reasonably make sure that all signals have been handled :'(
@@ -51,10 +55,6 @@ def disconnectAndDeleteImmediately(obj: QObject):
 	if not sip.isdeleted(obj):
 		sip.delete(obj)
 		#obj.deleteLater()
-
-
-QTSlot = Callable
-QTSlotID = str
 
 
 def connectOnlyOnce(obj: QObject, signal: pyqtBoundSignal | pyqtSignal, slot: QTSlot, slotID: QTSlotID):

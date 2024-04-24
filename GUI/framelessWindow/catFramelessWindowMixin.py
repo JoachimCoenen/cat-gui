@@ -5,7 +5,7 @@ from dataclasses import replace
 from typing import Callable, Generic, Optional, TYPE_CHECKING, Type, TypeVar, Union
 
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import QEvent, QRectF, Qt, pyqtSignal
+from PyQt5.QtCore import QEvent, QRectF, Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor, QHideEvent, QIcon, QPaintEvent, QPainter, QPixmap, QShowEvent, QWindow, qGray
 from PyQt5.QtWidgets import QLayout, QWidget, qApp
 
@@ -194,9 +194,9 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 		self._titleBar: Optional[QWidget] = None
 		self._toolbarInTitleBar: Optional[QWidget] = None
 		self._ignoredToolbarObjects: list[QWidget] = []
-		connectSafe(self._minimizeBtn.clicked, lambda _, s=self: s.showMinimized())
-		connectSafe(self._maximizeBtn.clicked, lambda _, s=self: s.showNormal() if s.isMaximized() or s.isFullScreen() else s.showMaximized())
-		connectSafe(self._closeBtn.clicked, lambda _, s=self: s.close())
+		connectSafe(self._minimizeBtn.clicked, self._onMinimizeBtnClicked)
+		connectSafe(self._maximizeBtn.clicked, self._onMaximizeBtnClicked)
+		connectSafe(self._closeBtn.clicked, self._onCloseBtnClicked)
 
 		self.borderSize = (9, 9, 9, 9)
 		self._shadowMargins = (13, 13, 13, 13)
@@ -227,9 +227,9 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 
 		# runLaterSafe(5, self.redraw)
 
-		connectSafe(self.windowIconChanged, lambda x, s=self: s.redrawLater('windowIconChanged'))
-		connectSafe(self.windowTitleChanged, lambda x, s=self: s.redrawLater('windowTitleChanged'))
-		connectSafe(self.windowStateChanged, self.onWindowStateChanged )
+		connectSafe(self.windowIconChanged, self._onWindowIconChanged)
+		connectSafe(self.windowTitleChanged, self._onWindowTitleChanged)
+		connectSafe(self.windowStateChanged, self._onWindowStateChanged )
 		# connect(self.titleBarWidget.iconButton, &QPushButton.clicked, self, &MainWindow.displaySystemMenu)
 
 	if TYPE_CHECKING:
@@ -272,6 +272,48 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 	# 	win: QWindow = self.windowHandle()
 	# 	win.hide() # is needed on windows 10. possibly a bug?
 	# 	win.showMaximized()
+
+	# Slots:
+
+	@pyqtSlot()
+	@CrashReportWrapped
+	def _onMinimizeBtnClicked(self) -> None:
+		self.showMinimized()
+
+	@pyqtSlot()
+	@CrashReportWrapped
+	def _onMaximizeBtnClicked(self) -> None:
+		self.showNormal() if self.isMaximized() or self.isFullScreen() else self.showMaximized()
+
+	@pyqtSlot()
+	@CrashReportWrapped
+	def _onCloseBtnClicked(self) -> None:
+		self.close()
+
+
+	@pyqtSlot()
+	@CrashReportWrapped
+	def _onWindowIconChanged(self) -> None:
+		self.redrawLater('windowIconChanged')
+
+	@pyqtSlot()
+	@CrashReportWrapped
+	def _onWindowTitleChanged(self) -> None:
+		self.redrawLater('windowTitleChanged')
+
+	@pyqtSlot()
+	@CrashReportWrapped
+	def _onWindowStateChanged(self) -> None:
+		if self.isMaximized() or self.isFullScreen():
+			self.setContentsMargins(0, 0, 0, 0)
+		elif not self.isMinimized():
+			self.setContentsMargins(*self._shadowMargins)
+
+		self._gui.host.repaint()
+		self.update()
+		self._gui.redrawGUI()
+
+	# Methids
 
 	@abstractmethod
 	def OnToolbarGUI(self, gui: _TPythonGUI):
@@ -405,7 +447,7 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 			return NO_MARGINS
 		else:
 			margin = self._gui.margin
-			return margin, 0, 0, margin
+			return margin, margin, margin, margin
 
 	@property
 	def _bottombarMargins(self) -> Margins:
@@ -672,17 +714,6 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 			if win:
 				framelessWindowsManager.deregisterWindow(win)
 				self._isInited = False
-
-	@CrashReportWrapped
-	def onWindowStateChanged(self):
-		if self.isMaximized() or self.isFullScreen():
-			self.setContentsMargins(0, 0, 0, 0)
-		elif not self.isMinimized():
-			self.setContentsMargins(*self._shadowMargins)
-
-		self._gui.host.repaint()
-		self.update()
-		self._gui.redrawGUI()
 
 	@CrashReportWrapped
 	def changeEvent(self:QWidget, event: QEvent) -> None:
