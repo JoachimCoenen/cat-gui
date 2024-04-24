@@ -980,15 +980,16 @@ def advancedCodeField(
 	codeField.clearIndicatorRange(*fullRange, Indicator.Info.value)
 
 	# add all new error markers:
-	if errors is not None:
+	if errors:
+		lastIdx = codeField.length() - 1
 		for error in errors:
 			indicator = errorIndicatorStyles.get(error.style, Indicator.Error.value)
-			# begin = tuple(error.position)
-			# end = tuple(error.end)
-			begin = codeField.cePositionFromIndex(error.position.index)
-			end = codeField.cePositionFromIndex(error.end.index)
-			if end == begin:
-				end = (end[0], end[1] + 1)
+			if (beginIdx := error.position.index) == lastIdx and beginIdx > 0:
+				beginIdx -= 1
+			begin = codeField.cePositionFromIndex(beginIdx)
+			if (endIdx := error.end.index) == beginIdx or endIdx == 0:
+				endIdx += 1
+			end = codeField.cePositionFromIndex(endIdx)
 			codeField.fillIndicatorRange(*begin, *end, indicator)
 
 	result: str = codeField.text()  # .replace('\r\n', '\n')
