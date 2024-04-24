@@ -313,6 +313,10 @@ class _GlobalCachedGenerator(_CachedGeneratorBase[_TT], Generic[_TT]):
 	def __init__(self, name: str, generator: Callable[[], _TT]):
 		super().__init__(GlobalGeneratingCache(name, lambda _: generator(), maxSize=1))
 
+	@property
+	def name(self) -> str:
+		return self._cache.name
+
 
 @Decorator
 def GlobalCachedGenerator(*, name: str) -> Callable[[Callable[[], _TT]], _GlobalCachedGenerator[_TT]]:
