@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Generic, Literal, overload, Type, TypeVar, Union
-from weakref import WeakKeyDictionary
 
+from .collections_.weakUnhashableKeyDict import WeakUnhashableKeyDict
 from ..utils.profiling import logDebug, logWarning
 
 
@@ -16,14 +16,14 @@ class CatSignal(Generic[_TSlot]):
 
 	def __init__(self, name: str):
 		self._name: str = name
-		self._connectedSlots: WeakKeyDictionary[Any, dict[Any, _TSlot]] = WeakKeyDictionary()
+		self._connectedSlots: WeakUnhashableKeyDict[Any, dict[Any, _TSlot]] = WeakUnhashableKeyDict()
 
 	@property
 	def name(self) -> str:
 		return self._name
 
 	@property
-	def connectedSlots(self) -> WeakKeyDictionary[Any, dict[Any, _TSlot]]:
+	def connectedSlots(self) -> WeakUnhashableKeyDict[Any, dict[Any, _TSlot]]:
 		return self._connectedSlots
 
 	def connect(self, instance: _TInstance, key: Any, slot: _TSlot, *, warnIfAlreadyConnected: bool = True):
@@ -66,7 +66,7 @@ class CatSignal(Generic[_TSlot]):
 				logDebug(f"Disconnecting all slots from signal {self.name} for instance '{instance}'.")
 			del self._connectedSlots[instance]
 
-	def emit(self, instance: _TInstance, args: list[Any]):
+	def emit(self, instance: _TInstance, args: tuple[Any, ...]):
 		slotsForInstance = self._connectedSlots.get(instance, None)
 		if not slotsForInstance:
 			if VERBOSE_LOGGING:
@@ -111,8 +111,8 @@ class CatBoundSignal(Generic[_TInstance, _TSlot]):
 	def reconnect(self, key: Any, slot: _TSlot):
 		self._unboundSignal.reconnect(self._instance, key, slot)
 
-	def disconnectAll(self):
+	def disconnectAll(self) -> None:
 		self._unboundSignal.disconnectAll(self._instance)
 
-	def emit(self, *args):
+	def emit(self, *args) -> None:
 		self._unboundSignal.emit(self._instance, args)
