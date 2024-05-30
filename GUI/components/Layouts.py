@@ -570,7 +570,7 @@ class TableLayout(DirectionalLayout):
 		self._nextColumnSpan = 1
 		self._prefixMode: PrefixMode = prefixMode
 
-	def __enter__(self):
+	def __enter__(self) -> TableLayoutRowManager:
 		super().__enter__()
 		return TableLayoutRowManager(self)
 
@@ -1087,6 +1087,10 @@ class SeamlessQDoubleColumnLayout(SeamlessQGridLayout):
 	pass
 
 
+class SeamlessQTableLayout(SeamlessQGridLayout):
+	pass
+
+
 class SeamlessQSingleRowLayout(SeamlessQGridLayout):
 	pass
 
@@ -1103,6 +1107,10 @@ class SeamlessDoubleColumnLayout(DoubleColumnLayout):
 	QLayoutType = SeamlessQDoubleColumnLayout
 
 
+class SeamlessTableLayout(TableLayout):
+	QLayoutType = SeamlessQTableLayout
+
+
 class SeamlessSingleRowLayout(SingleRowLayout):
 	QLayoutType = SeamlessQSingleRowLayout
 
@@ -1117,6 +1125,10 @@ def getSingleColumnLayout(seamless: bool) -> Type[SingleColumnLayout | SeamlessS
 
 def getDoubleColumnLayout(seamless: bool) -> Type[DoubleColumnLayout | SeamlessDoubleColumnLayout]:
 	return SeamlessDoubleColumnLayout if seamless else DoubleColumnLayout
+
+
+def getTableLayout(seamless: bool) -> Type[TableLayout | SeamlessTableLayout]:
+	return SeamlessTableLayout if seamless else TableLayout
 
 
 def getSingleRowLayout(seamless: bool) -> Type[SingleRowLayout | SeamlessSingleRowLayout]:
@@ -1158,6 +1170,7 @@ __all__ = [
 	'SeamlessDoubleRowLayout',
 	'getSingleColumnLayout',
 	'getDoubleColumnLayout',
+	'getTableLayout',
 	'getSingleRowLayout',
 	'getDoubleRowLayout',
 ]

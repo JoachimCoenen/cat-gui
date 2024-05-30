@@ -1317,7 +1317,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		qLayout = self.addLabeledItem(layoutCls.QLayoutType, label, fullSize=fullSize, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing, **kwargs)
 		return layoutCls(self, qLayout, preventVStretch, preventHStretch)
 
-	def tableLayout(self, preventVStretch: bool = False, preventHStretch: bool = False, prefixMode: PrefixMode = PrefixMode.none, **kwargs) -> TableLayout:
+	def tableLayout(self, preventVStretch: bool = False, preventHStretch: bool = False, prefixMode: PrefixMode = PrefixMode.none, seamless: bool = False, **kwargs) -> TableLayout:
 		"""
 		Creates a layout with multiple widgets per row. The widgets will be horizontally and vertically aligned. It has to be used in an ``with`` statement (``with gui.tableLayout() as table:``).
 		Everything within the with statement will be inside the layout.
@@ -1339,11 +1339,13 @@ class PythonGUI(CatScalableWidgetMixin):
 		:param preventVStretch:
 		:param preventHStretch:
 		:param prefixMode:
+		:param seamless:
 		:param kwargs:
 		:return:
 		"""
-		qLayout = self.addItem(TableLayout.QLayoutType, **kwargs)
-		return TableLayout(self, qLayout, preventVStretch, preventHStretch, prefixMode)
+		layoutCls = getTableLayout(seamless)
+		qLayout = self.addItem(layoutCls.QLayoutType, **kwargs)
+		return layoutCls(self, qLayout, preventVStretch, preventHStretch, prefixMode)
 
 	def hCentered(self) -> WithBlock:
 		"""
@@ -1376,16 +1378,46 @@ class PythonGUI(CatScalableWidgetMixin):
 		"""
 		return CenteredBlock(self.addVSpacer)
 
-	def hCentered2(self, label: Optional[str] = None, *, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> SingleRowLayout | SeamlessSingleRowLayout:
+	def hCentered2(
+			self,
+			label: Optional[str] = None,
+			*,
+			fullSize: bool = False,
+			preventVStretch: bool = False,
+			preventHStretch: bool = False,
+			verticalSpacing: int = -1,
+			horizontalSpacing: int = -1,
+			seamless: bool = False,
+			**kwargs
+	) -> SingleRowLayout | SeamlessSingleRowLayout:
 		"""
 		Centers contained widgets horizontally.
 		::
 			with gui.hCentered2():
 				gui.helpBox("To come in a future version.")
 		"""
-		return self.hCentered().surroundWithBlock(self.hLayout(label, fullSize=fullSize, preventVStretch=preventVStretch, preventHStretch=preventHStretch, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing, seamless=seamless, **kwargs))
+		return self.hCentered().surroundWithBlock(self.hLayout(
+			label,
+			fullSize=fullSize,
+			preventVStretch=preventVStretch,
+			preventHStretch=preventHStretch,
+			verticalSpacing=verticalSpacing,
+			horizontalSpacing=horizontalSpacing,
+			seamless=seamless,
+			**kwargs))
 
-	def vCentered2(self, label: Optional[str] = None, *, fullSize: bool = False, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, seamless: bool = False, **kwargs) -> DoubleColumnLayout | SeamlessDoubleColumnLayout:
+	def vCentered2(
+			self,
+			label: Optional[str] = None,
+			*,
+			fullSize: bool = False,
+			preventVStretch: bool = False,
+			preventHStretch: bool = False,
+			verticalSpacing: int = -1,
+			horizontalSpacing: int = -1,
+			seamless: bool = False,
+			**kwargs
+	) -> DoubleColumnLayout | SeamlessDoubleColumnLayout:
 		"""
 		Centers contained widgets vertically.
 		::
@@ -1394,7 +1426,15 @@ class PythonGUI(CatScalableWidgetMixin):
 				gui.vSeparator()
 				gui.label("Bottom half of the page")
 		"""
-		return self.vCentered().surroundWithBlock(self.vLayout(label, fullSize=fullSize, preventVStretch=preventVStretch, preventHStretch=preventHStretch, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing, seamless=seamless, **kwargs))
+		return self.vCentered().surroundWithBlock(self.vLayout(
+			label,
+			fullSize=fullSize,
+			preventVStretch=preventVStretch,
+			preventHStretch=preventHStretch,
+			verticalSpacing=verticalSpacing,
+			horizontalSpacing=horizontalSpacing,
+			seamless=seamless,
+			**kwargs))
 
 	def groupBox(self, title: str, *, selectable: bool = False, addSeparator: bool = False, **kwargs):
 		"""
@@ -1411,7 +1451,16 @@ class PythonGUI(CatScalableWidgetMixin):
 		"""
 		return self.indentation().surroundWith(lambda: self.toggleLeft(isChecked, title, style=getStyles().title, **kwargs))
 
-	def scrollBox(self, preventVStretch: bool = False, preventHStretch: bool = False, contentsMargins: Margins = None, verticalSpacing: int = -1, horizontalSpacing: int = -1, **kwargs):
+	def scrollBox(
+			self,
+			preventVStretch: bool = False,
+			preventHStretch: bool = False,
+			contentsMargins: Margins = None,
+			verticalSpacing: int = -1,
+			horizontalSpacing: int = -1,
+			seamless: bool = False,
+			**kwargs
+	):
 		"""
 		Creates a vertical layout. has to be used in an ``with`` statement (``with gui.verticalLayout():``).
 		Everything within the with statement will be inside the vertical layout.
@@ -1424,9 +1473,10 @@ class PythonGUI(CatScalableWidgetMixin):
 			widget = QWidget()
 			scrollBox.setWidget(widget)
 
+		layoutCls = getDoubleColumnLayout(seamless)
 		qLayout = widget.layout()
 		if qLayout is None:
-			qLayout = DoubleColumnLayout.QLayoutType()
+			qLayout = layoutCls.QLayoutType()
 			widget.setLayout(qLayout)
 
 		if contentsMargins is None:
@@ -1435,7 +1485,7 @@ class PythonGUI(CatScalableWidgetMixin):
 			qLayout.setContentsMargins(*contentsMargins)
 		layoutKwArgs = dict(verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing)
 		self.addkwArgsToItem(qLayout, layoutKwArgs)
-		return DoubleColumnLayout(self, qLayout, preventVStretch, preventHStretch)
+		return layoutCls(self, qLayout, preventVStretch, preventHStretch)
 
 	def frameBox(self, preventVStretch: bool = False, preventHStretch: bool = False, **kwargs):
 		"""
@@ -2515,7 +2565,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		connectOnlyOnce(buttonGroup, buttonGroup.buttonToggled[int, bool], lambda _, switchedOn: self.OnInputModified(btnGrpLayout, data=buttonGroup) if switchedOn else 0, '_OnInputModified_')
 		return buttonGroup.checkedId()
 
-	def listField(self, index, values, label=None, valuesHaveChanged=True, **kwargs):
+	def listField(self, index: Optional[int], values: list[str], label: Optional[str] = None, valuesHaveChanged: bool = True, **kwargs):
 		listBox = self.addLabeledItem(QtWidgets.QListView,   label, **kwargs)
 		if listBox.model() is None:
 			listBox.setModel(QtCore.QStringListModel(listBox))
