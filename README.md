@@ -7,7 +7,7 @@
 
 An [imgui](https://github.com/ocornut/imgui) style Graphical User Interface library for python using PyQt5 as its backend.
 
-Mainly used by [Datapack Editor](https://github.com/JoachimCoenen/Datapack-Editor).
+Mainly used by [Datapack Editor][DatapackEditor_LINK].
 
 ## Examples
 
@@ -30,11 +30,18 @@ A simple Calculator app with memory and a history view which can be enabled or d
 
 ![CalculatorExample_IMG]
 
+### Datapack Editor
+An advanced creator & editor for Minecraft Datapacks. Full source code is here: [Datapack-Editor][DatapackEditor_LINK]
+
+![DatapackEditorDialog_IMG]
+
 
 
 [HelloWorldExample_IMG]:         examples/media/helloWorld.png               "Hello World Application"
 [CalculatorExample_IMG]:         examples/media/calculator.png               "Calculator Application"
+[DatapackEditorDialog_IMG]:      https://github.com/JoachimCoenen/Datapack-Editor/blob/develop/screenshots/mainWindow.png?raw=true  "Datapack Editor main window"
 
 [NewIssue_LINK]:                 https://github.com/JoachimCoenen/cat-gui/issues/new  "New issue"
 [HelloWorldExample_LINK]:        examples/helloWorld/main.py  "Hello World Example"
 [CalculatorExample_LINK]:        examples/calculator/main.py  "Calculator Example"
+[DatapackEditor_LINK]:           https://github.com/JoachimCoenen/Datapack-Editor  "Datapack-Editor"
