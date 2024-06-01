@@ -97,12 +97,12 @@ class SerializableDataclass:
 		self.dumpJson(outFile)
 
 	@classmethod
-	def fromJSONDict(cls: Type[_TS], jsonDict: dict, memo: MemoForDeserialization, path: tuple[Union[str, int], ...], onError: Callable[[Exception, str], None] = None) -> _TS:
+	def fromJSONDict(cls: Type[_TS], jsonDict: dict, memo: MemoForDeserialization, path: tuple[Union[str, int], ...], onError: Callable[[Exception, str], None] | None = None) -> _TS:
 		cls2 = cls._getCls(jsonDict)
 		return fromJSONDict(cls2, jsonDict, memo, path, onError=onError)
 
 	@classmethod
-	def fromJson(cls: Type[_TS], string: str, onError: Callable[[Exception, str], None] = None) -> _TS:
+	def fromJson(cls: Type[_TS], string: str, onError: Callable[[Exception, str], None] | None = None) -> _TS:
 		return fromJson(cls, string, onError)
 
 	def validate(self) -> list[pd.ValidatorResult]:
@@ -270,52 +270,59 @@ def serializeJsonValue(
 			raise
 
 
-def fromJson(cls: Type[_TT], string: str, onError: Callable[[Exception, str], None] = None) -> _TT:
+def fromJson(cls: Type[_TT], string: str, onError: Callable[[Exception, str], None] | None = None) -> _TT:
 	decoder = json.JSONDecoder(object_hook=None, parse_float=None, parse_int=None, parse_constant=None, strict=True, object_pairs_hook=None)
 	jsonDict = decoder.decode(string)
 	return cls.fromJSONDict(jsonDict, {}, tuple(), onError=onError)
 
 
-def fromJSONDict(cls: Type[_TT], jsonDict: dict, memo: MemoForDeserialization, path: tuple[Union[str, int], ...], onError: Callable[[Exception, str], None] = None) -> _TT:
+class __Missing:
+	pass
+
+
+__MISSING = __Missing()
+
+
+def fromJSONDict(cls: Type[_TT], jsonDict: dict, memo: MemoForDeserialization, path: tuple[Union[str, int], ...], onError: Callable[[Exception, str], None] | None = None) -> _TT:
 	allFields = fields(cls)
 	kwArgs = {}
 	setLater = []
 	try:
 		for field in allFields:
 			name = field.name
-			serializedName = getSerializedName(field)
-			if serializedName in jsonDict and shouldSerialize(field, None):
+			if shouldSerialize(field, None):
 				if shouldDeferLoading(field):
 					setLater.append(field)
 					if field.init is True and field.default is MISSING and field.default_factory is MISSING:
 						kwArgs[name] = Nothing
 				else:
-					jsonValue: Any = jsonDict[serializedName]
-					try:
-						value = deserializeJsonField(field, None, jsonValue, memo, path, onError=onError)
-						kwArgs[name] = value
-					except Exception as e:
-						if True and onError is not None:
-							onError(e, f'{formatVal(cls)}.{name} in {type(cls).__name__}, serializedName= "{serializedName}"')
+					serializedName = getSerializedName(field)
+					jsonValue = jsonDict.get(serializedName, __MISSING)
+					if jsonValue is __MISSING:
+						ifMissing = getIfMissing(field)
+						if ifMissing is not None:
+							jsonValue = ifMissing(None)
+						elif field.init is True and field.default is MISSING and field.default_factory is MISSING:
+							raise SerializationError(
+								f"Missing mandatory constructor kwarg '{name}', (serializedName: '{serializedName}') for type {formatVal(cls)}.",
+								path=path)
 						else:
-							print(f'ERROR  : {formatVal(cls)}.{name} in {type(cls).__name__}, serializedName= "{serializedName}"')
-							raise
+							continue
+
+					_safeDeserializeJsonField(field, None, cls, jsonValue, memo, path, kwArgs.__setitem__, onError=onError)
 
 		memo[path] = instance = cls(**kwArgs)
 
+		setValue = lambda name, value: setattr(instance, name, value)
 		for field in setLater:
-			name = field.name
 			serializedName = getSerializedName(field)
-			jsonValue: Any = jsonDict[serializedName]
-			try:
-				value = deserializeJsonField(field, instance, jsonValue, memo, path, onError=onError)
-				setattr(instance, name, value)
-			except Exception as e:
-				if True and onError is not None:
-					onError(e, f'{formatVal(cls)}.{name} in {type(instance).__name__}, serializedName= "{serializedName}"')
-				else:
-					print(f'ERROR  : {formatVal(cls)}.{name} in {type(instance).__name__}, serializedName= "{serializedName}"')
-					raise
+			jsonValue = jsonDict.get(serializedName, __MISSING)
+			if jsonValue is __MISSING:
+				ifMissing = getIfMissing(field)
+				if ifMissing is not None:
+					jsonValue: Any = ifMissing(instance)
+			if jsonValue is not __MISSING:
+				_safeDeserializeJsonField(field, instance, cls, jsonValue, memo, path, setValue, onError=onError)
 
 		return instance
 
@@ -328,13 +335,45 @@ def fromJSONDict(cls: Type[_TT], jsonDict: dict, memo: MemoForDeserialization, p
 		raise
 
 
+def _safeDeserializeJsonField(
+		field: Field,
+		instance: Dataclass | None,
+		cls: Type[Dataclass],
+		jsonValue: Any,
+		memo: MemoForDeserialization,
+		path: SerializationPath,
+		setValue: Callable[[str, Any], None],
+		onError: Callable[[Exception, str], None] | None = None
+):
+	try:
+		value = deserializeJsonField(field, instance, jsonValue, memo, path, onError=onError)
+		setValue(field.name, value)
+	except Exception as ex:
+		_handleError(field, instance, cls, ex, onError)
+
+def _handleError(
+		field: Field,
+		instance: Dataclass | None,
+		cls: Type[Dataclass],
+		ex: Exception,
+		onError: Callable[[Exception, str], None] | None
+) -> None:
+	msg = f'{formatVal(cls)}.{field.name} in {type(instance) if instance is not None else cls.__name__}, serializedName="{getSerializedName(field)}"'
+	if True and onError is not None:
+		onError(ex, msg)
+	else:
+		ex.add_note(msg)
+		raise
+
+
+
 def deserializeJsonField(
 		field: Field,
-		instance: Dataclass,
+		instance: Dataclass | None,
 		rawValue: Any,
 		memo: MemoForDeserialization,
 		path: SerializationPath,
-		onError: Callable[[Exception, str], None] = None
+		onError: Callable[[Exception, str], None] | None = None
 ):
 	serializedName = getSerializedName(field)
 	path = path + (serializedName,)
@@ -358,7 +397,7 @@ def deserializeJsonValue(
 		decodedValue: Any,
 		memo: MemoForDeserialization,
 		path: SerializationPath,
-		onError: Callable[[Exception, str], None] = None
+		onError: Callable[[Exception, str], None] | None = None
 ) -> Any:
 	try:
 		if typeHint is NoneType or typeHint is Any:
@@ -522,6 +561,7 @@ def catMeta(
 		serialize: Optional[bool] = __SENTINEL,
 		serializedName: Optional[str] = __SENTINEL,
 		deferLoading: Optional[bool] = __SENTINEL,
+		ifMissing: Optional[Callable[[Dataclass], Any]] = __SENTINEL,
 		formatVal: bool | Callable[[Any], bool] = __SENTINEL,
 		customPrintFunc: Optional[Callable[[SerializableDataclass], Any]] = __SENTINEL,
 		encode: Optional[Callable[[Dataclass, Any], Any]] = __SENTINEL,
@@ -560,6 +600,9 @@ def catMeta(
 
 	if deferLoading is not __SENTINEL:
 		catDict['deferLoading'] = deferLoading
+
+	if ifMissing is not __SENTINEL:
+		catDict['ifMissing'] = ifMissing
 
 	if formatVal is not __SENTINEL:
 		catDict['formatVal'] = formatVal
@@ -617,6 +660,11 @@ def getSerializedName(field: Field) -> str:
 def shouldDeferLoading(field: Field) -> bool:
 	sf = getCatMeta(field, 'deferLoading')
 	return field.init is False or sf is True
+
+
+def getIfMissing(field: Field) -> Optional[Callable[[Dataclass], Any]]:
+	sf = getCatMeta(field, 'ifMissing')
+	return sf
 
 
 def shouldFormatVal(field: Field, val: Any) -> bool:
