@@ -1,1 +1,0 @@
-call compile.bat /clean $1
