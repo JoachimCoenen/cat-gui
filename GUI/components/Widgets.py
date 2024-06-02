@@ -327,7 +327,8 @@ class CatLabel(CatClickableMixin, QLabel, CatSizePolicyMixin, CatScalableWidgetM
 		if self.hasHeightForWidth():
 			# fixing a Qt bug... :(
 			w = self.width()
-			h = self.heightForWidth(w) # this somehow causes a repaint
+			w = w if w != 0 else superSizeHint.width()
+			h = self.heightForWidth(w)  # this somehow causes a repaint
 			superSizeHint.setHeight(h)
 		return superSizeHint
 
