@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 from typing import cast, Sequence, Union
 
@@ -114,6 +115,12 @@ class ResizeMode(Enum):
 	ResizeToContents = cast(QHeaderView.ResizeMode, QHeaderView.ResizeToContents)
 
 
+@dataclass
+class ValidatorResult:
+	message: str
+	style: str
+
+
 # non-enum types:
 LabelContent = Union[str, int, float, QtGui.QPixmap, QtGui.QPicture, QtGui.QIcon, QtGui.QMovie]
 FileExtensionFilter = tuple[str, Union[str, Sequence[str]]]
@@ -132,6 +139,7 @@ __all__ = [
 	'CompletionMode',
 	'ResizeMode',
 	# non-enum types:
+	'ValidatorResult',
 	'LabelContent',
 	'FileExtensionFilter',
 ]

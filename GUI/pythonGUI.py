@@ -2769,6 +2769,10 @@ class PythonGUI(CatScalableWidgetMixin):
 		return newValue
 
 
+def _toQDate(pyDate: date) -> QtCore.QDate:
+	return QtCore.QDate.fromString(str(pyDate), 'yyyy-MM-dd')
+
+
 _TPythonGUI = TypeVar('_TPythonGUI', bound=PythonGUI)
 
 
@@ -3115,5 +3119,56 @@ class MessageDialog(CatFramelessWindowMixin[_TPythonGUI], QDialog, Generic[_TPyt
 		return MessageBoxButton(result)
 
 
-def _toQDate(pyDate: date) -> QtCore.QDate:
-	return QtCore.QDate.fromString(str(pyDate), 'yyyy-MM-dd')
+class ValidatedDialog[TPythonGUI: PythonGUI](PythonGUIDialog[TPythonGUI]):
+
+	@abstractmethod
+	def validate(self) -> list[ValidatorResult]:
+		return NotImplemented
+
+	def additionalButtons(self) -> dict[MessageBoxButton, Callable[[MessageBoxButton], None] | tuple[Callable[[MessageBoxButton], None], dict[str, Any]]]:
+		return {MessageBoxButton.Cancel: lambda b: self.reject()}
+
+	def OnStatusbarGUI(self, gui: TPythonGUI):
+		errors, warnings = self._splitValidationResults(self.validate())
+		isOkEnabled = not errors
+		errorsMsg = self._formatErrorsMessage(errors) if errors else None
+		with gui.vLayout():
+			gui.dialogButtons({
+				MessageBoxButton.Ok: (lambda b: self.accept(), dict(enabled=isOkEnabled, tip=errorsMsg)),
+				**self.additionalButtons()
+			})
+
+	@staticmethod
+	def _splitValidationResults(valResults: list[ValidatorResult]) -> tuple[list[ValidatorResult], list[ValidatorResult]]:
+		errors = [valRes for valRes in valResults if valRes.style == 'error']
+		warnings = [valRes for valRes in valResults if valRes.style == 'warning']
+		return errors, warnings
+
+	@staticmethod
+	def _formatValidationResults(errors: list[ValidatorResult]) -> str:
+		return "\n".join(f" - {valRes.message}" for valRes in errors)
+
+	def _formatErrorsMessage(self, errors: list[ValidatorResult]) -> str:
+		return self._formatValidationResults(errors) + f"\n\nPlease fix all indicated problems."
+
+	def accept(self):
+		valResults = self.validate()
+		if valResults:
+			errors, warnings = self._splitValidationResults(valResults)
+			if errors:
+				self._gui.showErrorDialog(
+					"Some values are invalid:",
+					self._formatErrorsMessage(errors),
+					textFormat=Qt.TextFormat.MarkdownText
+				)
+				return  # don't close dialog
+			elif warnings:
+				if self._gui.showMessageDialog(
+					"There are Warnings. Do you want to ignore them?",
+					self._formatValidationResults(warnings),
+					textFormat=Qt.TextFormat.MarkdownText,
+					style=MessageBoxStyle.Warning,
+					buttons=MessageBoxButtonPreset.IgnoreCancel
+				) is not MessageBoxButton.Ignore:
+					return  # don't close dialog
+		super().accept()  # close dialog

@@ -4,7 +4,7 @@ from typing import Any, Callable, Optional, TypeVar, Union, Sequence, Iterable
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFontDatabase
 
-from .enums import FileExtensionFilter
+from .enums import FileExtensionFilter, ValidatorResult
 from ..Serializable.utils import PropertyDecorator
 from ..utils.utils import sanitizeFileName, INVALID_PATH_CHARS
 
@@ -138,12 +138,6 @@ class DescriptionAbove(PropertyDecorator):
 
 		self.description: str = description
 		self.kwargs: dict[str, Any] = kwargs
-
-
-@dataclass
-class ValidatorResult:
-	message: str
-	style: str
 
 
 class Validator(PropertyDecorator):
