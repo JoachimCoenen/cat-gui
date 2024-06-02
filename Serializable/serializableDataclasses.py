@@ -4,21 +4,21 @@ import enum
 import json
 import sys
 from dataclasses import Field, fields, MISSING
-from typing import Any, Union, Type, NewType, Optional, Callable, TypeVar, ForwardRef, ClassVar, IO, Iterator, Hashable
+from typing import Any, Self, Union, Type, Optional, Callable, ForwardRef, ClassVar, IO, Iterator, Hashable
 
 from ..GUI import propertyDecorators as pd
 from .utils import MemoForDeserialization, MemoForSerialization, SerializationPath, get_args, SerializationError, getRef, \
 	typeHintMatchesType, valueMatchesType, BASIC_TYPES_ENUM, BASIC_TYPES, PropertyDecorator, _eval_type
 from ..utils import SINGLETON_FIELD, NoneType, format_full_exc, Nothing
-from ..utils.collections_ import OrderedMultiDict
+from ..utils.collections_ import FrozenDict, OrderedMultiDict
 from ..utils.formatters import formatVal
 from ..utils.logging_ import logError
 
-Dataclass = NewType('Dataclass', Any)
 
-_TT = TypeVar('_TT')
-_TK = TypeVar('_TK', bound=Hashable)
-_TS = TypeVar('_TS', bound='SerializableDataclass')
+type Dataclass = Any  # a @dataclasses.dataclass annotated class
+
+
+_FIELDS_BY_NAME = '__dataclass_fields_by_name__'
 
 
 def _fixAnnotations(cls_annotations: dict[str, ForwardRef | str], module: str) -> dict[str, ForwardRef]:
@@ -97,13 +97,15 @@ class SerializableDataclass:
 		self.dumpJson(outFile)
 
 	@classmethod
-	def fromJSONDict(cls: Type[_TS], jsonDict: dict, memo: MemoForDeserialization, path: tuple[Union[str, int], ...], onError: Callable[[Exception, str], None] | None = None) -> _TS:
+	def fromJSONDict(cls, jsonDict: dict, memo: MemoForDeserialization, path: tuple[Union[str, int], ...], onError: Callable[[Exception, str], None] | None = None) -> Self:
 		cls2 = cls._getCls(jsonDict)
-		return fromJSONDict(cls2, jsonDict, memo, path, onError=onError)
+		return _fromJSONDict(cls2, jsonDict, memo, path, onError=onError)
 
 	@classmethod
-	def fromJson(cls: Type[_TS], string: str, onError: Callable[[Exception, str], None] | None = None) -> _TS:
-		return fromJson(cls, string, onError)
+	def fromJson(cls, string: str, onError: Callable[[Exception, str], None] | None = None) -> Self:
+		decoder = json.JSONDecoder(object_hook=None, parse_float=None, parse_int=None, parse_constant=None, strict=True, object_pairs_hook=None)
+		jsonDict = decoder.decode(string)
+		return cls.fromJSONDict(jsonDict, {}, tuple(), onError=onError)
 
 	def validate(self) -> list[pd.ValidatorResult]:
 		"""
@@ -125,12 +127,12 @@ class SerializableDataclass:
 						warnings.append(valRes)
 		return errors + warnings
 
-	def copyFrom(self: _TS, other: _TS) -> None:
+	def copyFrom(self: Self, other: Self) -> None:
 		"""sets self to a shallow copy of other"""
 		if self is other:  # handle singletons
 			return
 		if not isinstance(other, SerializableDataclass):
-			raise ValueError(f"expected a SerializableDataclass, but got {other}")
+			raise TypeError(f"expected a SerializableDataclass, but got {other}")
 		for aField in fields(self):
 			if shouldSerialize(aField, None):
 				otherVal = getattr(other, aField.name)
@@ -141,7 +143,7 @@ class SerializableDataclass:
 	_subclasses: ClassVar[dict[str, Type['SerializableDataclass']]] = {}
 
 	@classmethod
-	def _registerSubclass(cls: Type[_TS], name: str, subCls: Type[_TS]) -> None:
+	def _registerSubclass(cls, name: str, subCls: Type[Self]) -> None:
 		cls._subclasses[name] = subCls
 		for base in cls.__bases__:
 			_registerSubclass = getattr(base, '_registerSubclass', None)
@@ -149,8 +151,8 @@ class SerializableDataclass:
 				_registerSubclass(name, subCls)
 
 	@classmethod
-	def _getCls(cls, jsonDict: dict):
-		clsName = jsonDict.get("@class", None)
+	def _getCls(cls, jsonDict: dict[str, Any]):
+		clsName = jsonDict.get("@class")
 		if clsName is None:
 			return cls
 		subCls = cls._subclasses.get(clsName, None)
@@ -160,7 +162,7 @@ class SerializableDataclass:
 			msg = (
 				f"Unknown SerializableContainer class '{clsName}' not registered as subclass of '{cls.__qualname__}'.\n"
 				f"{registeredSubclassesStr}")
-			raise ValueError(msg)
+			raise TypeError(msg)
 		else:
 			return subCls
 
@@ -183,6 +185,7 @@ def serializeJson(instance: Dataclass, strict, memo: MemoForSerialization, path:
 
 def serializeJsonField(field: Field, instance: Dataclass, strict: bool, memo: MemoForSerialization, path: SerializationPath):
 	"""
+	:param field: The field to be serialized
 	:param instance: The instance containing the value to be serialized
 	:param strict: whether to apply strict type checking or not
 	:param memo:
@@ -228,7 +231,7 @@ def serializeJsonValue(
 				return {'@ref': memo[id(rawValue)]}
 			else:
 				memo.setdefault(id(rawValue), path)
-		#if isinstance(rawValue, SerializableContainerBase):
+		# if isinstance(rawValue, SerializableContainerBase):
 		if hasattr(rawValue, 'serializeJson'):
 			return rawValue.serializeJson(strict=strict, memo=memo, path=path)
 		elif isinstance(rawValue, list):
@@ -244,14 +247,18 @@ def serializeJsonValue(
 			args = get_args(typeHint)
 			keyTypeHint = args[0]
 			valTypeHint = args[1]
-			return {serializeJsonValue(keyTypeHint, k, strict, memo, path=path + (None,)): serializeJsonValue(valTypeHint, v, strict, memo, path + (k,)) for k, v in
-					rawValue.items()}
+			return {
+				serializeJsonValue(keyTypeHint, k, strict, memo, path=path + (None,)): serializeJsonValue(valTypeHint, v, strict, memo, path + (k,))
+				for k, v in rawValue.items()
+			}
 		elif isinstance(rawValue, OrderedMultiDict):
 			args = get_args(typeHint)
 			keyTypeHint = args[0]
 			valTypeHint = args[1]
-			return [(serializeJsonValue(keyTypeHint, k, strict, memo, path=path + (None,)), serializeJsonValue(valTypeHint, v, strict, memo, path + (k,))) for k, v in
-					rawValue.items()]
+			return [
+				(serializeJsonValue(keyTypeHint, k, strict, memo, path=path + (None,)), serializeJsonValue(valTypeHint, v, strict, memo, path + (k,)))
+				for k, v in rawValue.items()
+			]
 		elif isinstance(rawValue, enum.Enum):
 			if type(rawValue) is not typeHint and strict:
 				raise SerializationError(
@@ -270,12 +277,6 @@ def serializeJsonValue(
 			raise
 
 
-def fromJson(cls: Type[_TT], string: str, onError: Callable[[Exception, str], None] | None = None) -> _TT:
-	decoder = json.JSONDecoder(object_hook=None, parse_float=None, parse_int=None, parse_constant=None, strict=True, object_pairs_hook=None)
-	jsonDict = decoder.decode(string)
-	return cls.fromJSONDict(jsonDict, {}, tuple(), onError=onError)
-
-
 class __Missing:
 	pass
 
@@ -283,7 +284,7 @@ class __Missing:
 __MISSING = __Missing()
 
 
-def fromJSONDict(cls: Type[_TT], jsonDict: dict, memo: MemoForDeserialization, path: tuple[Union[str, int], ...], onError: Callable[[Exception, str], None] | None = None) -> _TT:
+def _fromJSONDict[T](cls: Type[T], jsonDict: dict, memo: MemoForDeserialization, path: tuple[Union[str, int], ...], onError: Callable[[Exception, str], None] | None = None) -> T:
 	allFields = fields(cls)
 	kwArgs = {}
 	setLater = []
@@ -313,7 +314,9 @@ def fromJSONDict(cls: Type[_TT], jsonDict: dict, memo: MemoForDeserialization, p
 
 		memo[path] = instance = cls(**kwArgs)
 
-		setValue = lambda name, value: setattr(instance, name, value)
+		def setValue(name: str, value: Any):
+			setattr(instance, name, value)
+
 		for field in setLater:
 			serializedName = getSerializedName(field)
 			jsonValue = jsonDict.get(serializedName, __MISSING)
@@ -351,6 +354,7 @@ def _safeDeserializeJsonField(
 	except Exception as ex:
 		_handleError(field, instance, cls, ex, onError)
 
+
 def _handleError(
 		field: Field,
 		instance: Dataclass | None,
@@ -364,7 +368,6 @@ def _handleError(
 	else:
 		ex.add_note(msg)
 		raise
-
 
 
 def deserializeJsonField(
@@ -464,8 +467,10 @@ def deserializeJsonValue(
 			propValue = OrderedMultiDict()
 			memo[path] = propValue
 			propValue.update(
-				(deserializeJsonValue(field, keyTypeHint, k, memo, path + (None,), onError=onError),
-				 deserializeJsonValue(field, valTypeHint, v, memo, path + (k,), onError=onError))
+				(
+					deserializeJsonValue(field, keyTypeHint, k, memo, path + (None,), onError=onError),
+					deserializeJsonValue(field, valTypeHint, v, memo, path + (k,), onError=onError)
+				)
 				for k, v in decodedValue
 			)
 
@@ -493,7 +498,7 @@ def deserializeJsonValue(
 			raise
 
 
-def createCopy(otherVal: _TT) -> Iterator[_TT]:
+def createCopy[T](otherVal: T) -> Iterator[T]:
 	if isinstance(otherVal, SerializableDataclass):
 		return createCopySerializableDataclass(otherVal)
 	elif isinstance(otherVal, list):
@@ -512,7 +517,7 @@ def createCopySerializableDataclass(other: SerializableDataclass) -> Iterator[Se
 	self.copyFrom(other)
 
 
-def createCopyList(other: list[_TT]) -> Iterator[list[_TT]]:
+def createCopyList[T](other: list[T]) -> Iterator[list[T]]:
 	self = type(other)()
 	yield self
 	for otherVal in other:
@@ -532,7 +537,7 @@ def createCopyTuple(other: tuple) -> Iterator[tuple]:
 		next(selfValIt, None)
 
 
-def createCopyDict(other: dict[_TK, _TT]) -> Iterator[dict[_TK, _TT]]:
+def createCopyDict[K: Hashable, T](other: dict[K, T]) -> Iterator[dict[K, T]]:
 	self = type(other)()
 	yield self
 	for otherKey, otherVal in other.items():
@@ -544,12 +549,48 @@ def createCopyDict(other: dict[_TK, _TT]) -> Iterator[dict[_TK, _TT]]:
 		next(selfValIt, None)
 
 
-def createCopySimple(other: list[_TT]) -> Iterator[list[_TT]]:
+def createCopySimple[T](other: list[T]) -> Iterator[list[T]]:
 	self = copy.deepcopy(other)
 	yield self
 
 
-__EMPTY_DICT = {}
+def fieldsByName(class_or_instance: Dataclass | type[Dataclass]) -> dict[str, Field]:
+	"""Return a dict describing the fields of this dataclass by their name.
+
+	Accepts a dataclass or an instance of one; raises a TypeError otherwise.
+	The result is cached per class.
+	"""
+
+	_fieldsByName = getattr(class_or_instance, _FIELDS_BY_NAME, None)
+	if _fieldsByName is None:
+		_fields = fields(class_or_instance)
+		_fieldsByName = {field.name: field for field in _fields}
+
+		cls = class_or_instance if isinstance(class_or_instance, type) else type(class_or_instance)
+		setattr(cls, _FIELDS_BY_NAME, _fieldsByName)
+
+	return _fieldsByName
+
+
+def getField(class_or_instance: Dataclass | type[Dataclass], name: str) -> Field:
+	"""Return the field of this dataclass that has the given name.
+
+	Raises a KeyError if there is no such field.
+	Accepts a dataclass or an instance of one; raises a TypeError otherwise.
+	"""
+	return fieldsByName(class_or_instance)[name]
+
+
+def getFieldOptional(class_or_instance: Dataclass | type[Dataclass], name: str) -> Field | None:
+	"""Return the field of this dataclass that has the given name.
+
+	Returns None if there is no such field.
+	Accepts a dataclass or an instance of one; raises a TypeError otherwise.
+	"""
+	return fieldsByName(class_or_instance).get(name)
+
+
+__EMPTY_DICT = FrozenDict.EMPTY
 __EMPTY_LIST = []
 
 __SENTINEL = object()
@@ -577,6 +618,7 @@ def catMeta(
 	:param serialize: default is (not readOnly)
 	:param serializedName:
 	:param deferLoading:
+	:param ifMissing:
 	:param formatVal:
 	:param customPrintFunc:
 	:param encode:
@@ -707,14 +749,17 @@ def getKwargs(field: Field) -> dict[str, Any]:
 	return getCatMeta(field, 'kwargs', __EMPTY_DICT)
 
 
-def getKWArg(field: Field, key: str, default: _TT) -> Any | _TT:
+def getKWArg[T](field: Field, key: str, default: T) -> Any | T:
 	return getCatMeta(field, 'kwargs', __EMPTY_DICT).get(key, default)
 
 
 __all__ = [
 	'SerializableDataclass',
-	'catMeta',
+	'fieldsByName',
+	'getField',
+	'getFieldOptional',
 
+	'catMeta',
 	'getCatMeta',
 	'setCatMeta',
 	'shouldSerialize',
