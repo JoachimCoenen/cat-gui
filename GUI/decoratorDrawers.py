@@ -139,7 +139,7 @@ def drawValidator(gui_: AutoGUI, value_: _TT, type_: Optional[Type[_TT]], decora
 	validator = getValueOrValueOfProp(owner_, decorator_.validator)
 	result: Optional[ValidatorResult] = validator(value_)
 	if result is not None:
-		gui_.helpBox(result.message, style=result.style, hasLabel=kwargs.get('hasLabel', True), enabled=kwargs.get('enabled', True), **decorator_.kwargs)
+		gui_.helpBox(result.message, style=result.style, hasLabel=kwargs.get('hasLabel', True), fullSize=kwargs.get('fullSize', False), enabled=kwargs.get('enabled', True), **decorator_.kwargs)
 	return value_
 
 

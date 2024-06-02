@@ -2069,14 +2069,14 @@ class PythonGUI(CatScalableWidgetMixin):
 		'error': getStyles().error
 	}
 
-	def helpBox(self, text: str, style: str = 'hint', elided: bool = False, wordWrap: bool = True, hasLabel: bool = True, **kwargs):
+	def helpBox(self, text: str, style: str = 'hint', elided: bool = False, wordWrap: bool = True, hasLabel: bool = True, fullSize: bool = False, **kwargs):
 		""" displays a full width Help Box"""
 		assert style in self.helpBoxStyles
 		style = Style({'QLabel': self.helpBoxStyles[style]})
 
 		kwargs.setdefault('textInteractionFlags', Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
 		if text:
-			if hasLabel:
+			if hasLabel and not fullSize:
 				self.label('', isPrefix=True)
 			if elided:
 				self.elidedLabel(text, style=style, selectable=True, wordWrap=wordWrap, **kwargs)
