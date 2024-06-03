@@ -589,7 +589,7 @@ class CatFramelessWindowMixin(CatWindowMixin, Generic[_TPythonGUI]):  # , QDialo
 		lSpacing = gui.spacing
 		tSpacing = gui.smallSpacing - 1
 		with gui.hLayout(contentsMargins=(lSpacing, tSpacing*0, 0, 0),):
-			gui.label(self._getWindowIcon())
+			gui.label(self._getWindowIcon(), iconScale=1.0)
 		with gui.hLayout(horizontalSpacing=0):
 			self._titleOrToolbarGUI(gui, overlap)
 			self._titleBarButtonsGUI(gui, overlap=joinOverlap(overlap, (1, 0, 0, 0)), roundedCorners=maskCorners(roundedCorners, CORNERS.RIGHT), cornerRadius=cornerRadius)
