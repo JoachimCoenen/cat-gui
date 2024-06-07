@@ -74,7 +74,7 @@ class OrderedMultiDict[TK: Hashable, TV](MutableMapping[TK, TV]):
 	def getLast[TT](self, key: TK, default: TT = None) -> TV | TT:
 		vals = self._getAllOrNull(key)
 		if vals is not None:  # if key in self:
-			x = vals[-1][1]
+			return vals[-1][1]
 		return default
 
 	@overload
@@ -432,7 +432,7 @@ class OrderedMultiDict[TK: Hashable, TV](MutableMapping[TK, TV]):
 	def sort(self, *, key: Optional[Callable[[tuple[TK, TV]], Any]] = None, reverse: bool = False):
 		self._items = OrderedDict(enumerate(sorted(self._items.values(), key=key, reverse=reverse)))
 
-	def __eq__(self, other):
+	def __eq__(self, other) -> bool:
 		if type(self) is not type(other):
 			return NotImplemented
 		for i1, i2 in zip_longest(self.items(), other.items(), fillvalue=_SENTINEL_):
@@ -440,16 +440,16 @@ class OrderedMultiDict[TK: Hashable, TV](MutableMapping[TK, TV]):
 				return False
 		return True
 
-	def __ne__(self, other):
+	def __ne__(self, other) -> bool:
 		return not self.__eq__(other)
 
-	def __len__(self):
+	def __len__(self) -> int:
 		return len(self._items)
 
-	def __iter__(self):
+	def __iter__(self) -> Iterator[TK]:
 		return iter(self.keys())
 
-	def __contains__(self, key: TK):
+	def __contains__(self, key: TK) -> bool:
 		# return key in self._map
 		return key in self._map
 
@@ -460,19 +460,19 @@ class OrderedMultiDict[TK: Hashable, TV](MutableMapping[TK, TV]):
 			return vals[0][1]
 		raise KeyError(key)
 
-	def __setitem__(self, key: TK, value: TV):
+	def __setitem__(self, key: TK, value: TV) -> None:
 		self.setAll(key, [value])
 
-	def __delitem__(self, key: TK):
+	def __delitem__(self, key: TK) -> None:
 		self.pop(key)
 
-	def __bool__(self):
+	def __bool__(self) -> bool:
 		return bool(self._map)
 
-	def __str__(self):
+	def __str__(self) -> str:
 		return '{%s}' % ', '.join(f'{repr(p[0])}: {repr(p[1])}' for p in self._items.values())
 
-	def __repr__(self):
+	def __repr__(self) -> str:
 		return f'{self.__class__.__name__}({self._items.values()}!r)'
 
 	def __getstate__(self):
