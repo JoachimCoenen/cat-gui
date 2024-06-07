@@ -9,8 +9,9 @@ from typing import Callable, NamedTuple, Optional, TYPE_CHECKING, TypeAlias, Uni
 
 from PyQt5 import sip
 from PyQt5.QtCore import QEvent, QMargins, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetrics, QImage, QKeySequence, QLinearGradient, QMouseEvent, QPaintDevice, QPaintEvent, QPainter, \
-	QPainterPath, QPalette, QPen, QResizeEvent, QShortcutEvent, QStaticText, qGray
+from PyQt5.QtGui import QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetrics, QImage, QKeySequence, \
+	QLinearGradient, QMouseEvent, QPaintDevice, QPaintEvent, QPainter, QPainterPath, QPalette, QPen, QResizeEvent, \
+	QShortcutEvent, QStaticText, qGray, QIcon
 from PyQt5.QtWidgets import QApplication, QFrame, QLayout, QScrollBar, QShortcut, QSizePolicy, QWidget
 
 from ..utilities import connectSafe, disconnect, safeEmit
@@ -254,6 +255,19 @@ def setPaintEventDebugLineColor(p: QPainter, hasMinSize: bool, isMin: bool) -> N
 		p.setPen(QColor(red, 0, 255, 127))
 	else:
 		p.setPen(QColor(red, 127, 0, 127))
+
+
+def getLayoutBorderPen() -> QPen:
+	layoutBorderColor = QColor((97*2)//3, 128, 0)
+	layoutBorderColor.setAlphaF(0.5)
+	layoutBorderPen = QPen(QBrush(layoutBorderColor), 1., join=Qt.MiterJoin)
+	return layoutBorderPen
+
+
+def drawLayoutBorder(p: QPainter, rect: QRect,):
+	p.setPen(getLayoutBorderPen())
+	p.setBrush(Qt.NoBrush)
+	p.drawRect(QRectF(rect).adjusted(0.5, 0.5, -0.5, -0.5))
 
 
 class CatClickableMixin:
@@ -708,6 +722,72 @@ def _getBorderPath(rect: QRectF, radius: float, corners: RoundedCorners) -> QPai
 		return path
 
 
+def getSpoilerTriangle(iconRect: QRectF, isOpen: bool) -> tuple[QPointF, QPointF, QPointF]:
+	w = iconRect.width()
+	h = iconRect.height()
+	t = int(iconRect.top() + h * 0.25) + 0.5
+	b = int(iconRect.bottom() - h * 0.25) - 0.5
+	l = int(iconRect.left() + w * 0.25) + 0.5
+	r = int(iconRect.right() - w * 0.25) - 0.5
+	if isOpen:
+		points = (QPointF(l, t), QPointF(r, t), QPointF((l + r) / 2.0, b))
+	else:
+		points = (QPointF(l, b), QPointF(l, t), QPointF(r, (t + b) / 2))
+	return points
+
+
+def getBorderPen(brush: QBrush, borderWidth: float = 1.) -> QPen:
+	borderWidth = 1.0001 if borderWidth == 1. else borderWidth  # fixes corners of 1px wide lines. See: https://stackoverflow.com/questions/78585695/miterjoin-is-ignored-for-single-pixel-width-pen
+	pen = QPen(brush, borderWidth, cap=Qt.SquareCap, join=Qt.MiterJoin)
+	return pen
+
+
+def paintFramedWidgetBkg(p: QPainter, bkgBrush: QBrush, border1: tuple[QPainterPath, QPen], *borders: tuple[QPainterPath, QPen]) -> None:
+	paintPath(p, bkgBrush, *border1)
+	for border2 in borders:
+		paintPath(p, Qt.NoBrush, *border2)
+
+
+def paintPath(p: QPainter, bkgBrush: QBrush, path: QPainterPath, borderPen: QPen) -> None:
+	p.setPen(borderPen)
+	p.setBrush(bkgBrush)
+	p.drawPath(path)
+
+
+def paintIcon(p: QPainter, icon: QIcon, iconRect: QRect, mode: QIcon.Mode, isOn: bool) -> None:
+	p.drawPixmap(iconRect,icon.pixmap(
+		iconRect.size(),
+		mode=mode,
+		state=QIcon.On if isOn else QIcon.Off
+	))
+
+
+def paintText(p: QPainter, text: str | QStaticText, textRect: QRect, textPen: QBrush | QColor | QPen, font: QFont, isDefault: bool) -> None:
+	if isDefault:
+		font = QFont(font)
+		font.setWeight(font.weight() + 7)
+
+	if isinstance(textPen, QBrush):
+		textPen = QPen(textPen, 1)
+	p.setPen(textPen)
+	p.setFont(font)
+
+	if isinstance(text, QStaticText):
+		p.drawStaticText(textRect.topLeft(), text)
+	else:
+		# todo: maybe include Qt.TextShowMnemonic option?
+		p.drawText(textRect, Qt.TextShowMnemonic, text)
+
+
+def paintSpoilerTriangle(p: QPainter, rect: QRect, brush: QBrush, isOpen: bool) -> None:
+	points = getSpoilerTriangle(rect, isOpen)
+	pen = getBorderPen(brush, 1)
+	pen.setMiterLimit(5)
+	p.setPen(pen)
+	p.setBrush(brush)
+	p.drawPolygon(*points)
+
+
 CAT_FRAMED_SCROLL_AREA_USE_PIXMAP: bool = True
 
 
@@ -762,55 +842,44 @@ class CatFramedAreaMixin(CatFramedWidgetMixin, CatScalableWidgetMixin):
 
 	def _paintBorder(self, paintDevice: QPaintDevice, fillCenter: bool = False, tl: QPoint = QPoint()):
 		if CAT_FRAMED_SCROLL_AREA_USE_PIXMAP:
-			rect = self.adjustRectByOverlap(self.rect())
-			# get Colors:
-			borderBrush1, borderBrush2, borderBrush3 = self.getBorderBrushes(rect)
-			# borderBrush1 = QColor('turquoise') if fillCenter else QColor('orange')
-			borderPen1 = QPen(borderBrush1, 1, cap=Qt.SquareCap, join=Qt.SvgMiterJoin)
-			borderPen2 = QPen(borderBrush2, 1, cap=Qt.SquareCap, join=Qt.SvgMiterJoin)
-			borderPen3 = QPen(borderBrush3, 2, cap=Qt.SquareCap, join=Qt.SvgMiterJoin)
-			bkgBrush = QBrush()  # QBrush(bkgColor)
-
-			if self._drawFocusFrame and self.hasFocus():
-				borderRect = self.rect()
-			else:
-				borderRect = rect
-
-			borderPath1 = self.getBorderPath(borderRect)
-			borderPath2 = self.getBorderPath(borderRect.adjusted(1, 1, -1, -1), radiusDelta=-1)
-			borderPath3 = self.getBorderPath(self.rect().adjusted(0, 0, -1, -1))
-
 			try:
-				with QPainter(paintDevice) as p:
-					p.translate(tl)
-					if fillCenter:
-						p.setRenderHint(QPainter.Antialiasing, False)
-						oldCM = p.compositionMode()
-						p.setCompositionMode(QPainter.CompositionMode_DestinationOut)
-
-						p.setPen(borderPen1)
-						p.setBrush(QColor())
-						p.drawPath(borderPath2)
-
-						p.setCompositionMode(oldCM)
-
-					p.setPen(borderPen3)
-					p.setBrush(bkgBrush)
-					p.drawPath(borderPath3)
-
-					p.setRenderHint(QPainter.Antialiasing, True)
-					p.setPen(borderPen1)
-					p.setBrush(bkgBrush)
-					p.drawPath(borderPath1)
-
-					p.setPen(borderPen2)
-					p.drawPath(borderPath2)
-				self._pixmapNeedsRepaint = False
+				self._drawBorderInternal(fillCenter, paintDevice, tl)
 			except ValueError as e:
 				if str(e) == 'QPainter must be created with a device':
 					pass  # ignore!
 				else:
 					raise
+
+	def _drawBorderInternal(self, fillCenter: bool, paintDevice: QPaintDevice, tl: QPoint):
+		# get Paths
+		rect = self.adjustRectByOverlap(self.rect())
+		borderRect = self.rect() if self._drawFocusFrame and self.hasFocus() else rect
+		borderPath1 = self.getBorderPath(borderRect)
+		borderPath2 = self.getBorderPath(borderRect.adjusted(1, 1, -1, -1), radiusDelta=-1)
+		borderPath3 = self.getBorderPath(self.rect().adjusted(0, 0, -1, -1))
+
+		# get Colors:
+		borderBrush1, borderBrush2, borderBrush3 = self.getBorderBrushes(rect)
+		borderPen1 = getBorderPen(borderBrush1, 1)
+		borderPen2 = getBorderPen(borderBrush2, 1)
+		borderPen3 = getBorderPen(borderBrush3, 2)
+		bkgBrush = QBrush()
+
+		with QPainter(paintDevice) as p:
+			p.translate(tl)
+			if fillCenter:
+				p.setRenderHint(QPainter.Antialiasing, False)
+				oldCM = p.compositionMode()
+				p.setCompositionMode(QPainter.CompositionMode_DestinationOut)
+				paintFramedWidgetBkg(p, QColor(), (borderPath2, borderPen1))
+				p.setCompositionMode(oldCM)
+
+			paintFramedWidgetBkg(p, bkgBrush, (borderPath3, borderPen3))
+
+			p.setRenderHint(QPainter.Antialiasing, True)
+			paintFramedWidgetBkg(p, bkgBrush, (borderPath1, borderPen1), (borderPath2, borderPen2))
+
+		self._pixmapNeedsRepaint = False
 
 	@MethodCallCounter(enabled=False)
 	def paintFrame(self, event: QPaintEvent):

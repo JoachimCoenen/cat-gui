@@ -4,19 +4,23 @@ from math import ceil, inf
 from typing import List, NamedTuple, Optional, TYPE_CHECKING, Tuple, cast, overload
 
 from PyQt5 import sip
-from PyQt5.QtCore import QAbstractTableModel, QEvent, QItemSelection, QItemSelectionModel, QModelIndex, QObject, QPoint, QPointF, QPropertyAnimation, QRect, QRectF, QSize, QSizeF, \
-	Qt, pyqtProperty, pyqtSignal
-from PyQt5.QtGui import QAbstractTextDocumentLayout, QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetrics, QIcon, QKeyEvent, QKeySequence, QMouseEvent, QMoveEvent, QMovie, \
-	QPaintEvent, QPainter, QPainterPath, QPalette, QPen, QPicture, QPixmap, QPolygonF, QResizeEvent, QScreen, QShortcutEvent, QStaticText, QTextDocument, QTextLayout, QTextLine, \
-	QTextOption, QValidator
-from PyQt5.QtWidgets import QAbstractButton, QAbstractItemView, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QGraphicsBlurEffect, QGraphicsEffect, QGridLayout, QLabel, \
-	QLayout, QLineEdit, QPushButton, QRadioButton, QScrollArea, QShortcut, QSizePolicy, QStyle, QStyleOptionViewItem, QStyledItemDelegate, QTableView, QTextEdit, QTreeView, QWidget
+from PyQt5.QtCore import QAbstractTableModel, QEvent, QItemSelection, QItemSelectionModel, QModelIndex, QObject, QPoint, \
+	QPointF, QPropertyAnimation, QRect, QRectF, QSize, QSizeF, Qt, pyqtProperty, pyqtSignal
+from PyQt5.QtGui import QAbstractTextDocumentLayout, QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetrics, QIcon, \
+	QKeyEvent, QKeySequence, QMouseEvent, QMoveEvent, QMovie, QPaintEvent, QPainter, QPainterPath, QPalette, QPen, \
+	QPicture, QPixmap, QPolygonF, QResizeEvent, QScreen, QShortcutEvent, QStaticText, QTextDocument, QTextLayout, \
+	QTextLine, QTextOption, QValidator
+from PyQt5.QtWidgets import QAbstractButton, QAbstractItemView, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, \
+	QGraphicsBlurEffect, QGraphicsEffect, QGridLayout, QLabel, QLayout, QLineEdit, QPushButton, QRadioButton, \
+	QScrollArea, QShortcut, QSizePolicy, QStyle, QStyleOptionViewItem, QStyledItemDelegate, QTableView, QTextEdit, \
+	QTreeView, QWidget
 
 from ..utilities import connectSafe, safeEmit
-from ...GUI.components.catWidgetMixins import CAN_BUT_NO_BORDER_OVERLAP, CORNERS, CatClickableMixin, CatFocusableMixin, CatFramedAbstractScrollAreaMixin, CatFramedAreaMixin, \
-	CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, CatStyledWidgetMixin, ColorPalette, OverlapCharacteristics, PaintEventDebug, ShortcutMixin, \
-	UndoBlockableMixin, centerOfRect, getBorderPath, palettes
-from ...GUI.components.renderArea import Pens
+from ...GUI.components.catWidgetMixins import CAN_BUT_NO_BORDER_OVERLAP, CORNERS, CatClickableMixin, CatFocusableMixin, \
+	CatFramedAbstractScrollAreaMixin, CatFramedAreaMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, \
+	CatSizePolicyMixin, CatStyledWidgetMixin, ColorPalette, OverlapCharacteristics, PaintEventDebug, ShortcutMixin, \
+	UndoBlockableMixin, centerOfRect, getBorderPath, palettes, paintFramedWidgetBkg, paintIcon, paintText, \
+	drawLayoutBorder, paintSpoilerTriangle, getBorderPen
 from ...GUI.components.treeModel import DataTreeModel, TreeItemBase, TreeModel
 from ...utils.utils import CrashReportWrapped
 
@@ -24,17 +28,10 @@ from ...utils.utils import CrashReportWrapped
 DEBUG_LAYOUT: bool = False
 
 
-def getLayoutBorderPen(self: CatStyledWidgetMixin) -> QPen:
-	layoutBorderColor = QColor((97*2)//3, 128, 0)
-	layoutBorderColor.setAlphaF(0.5)
-	layoutBorderPen = QPen(QBrush(layoutBorderColor), 1.)
-	return layoutBorderPen
-
-
 def paintGridLayoutBorders(p: QPainter, layout: QLayout) -> None:
 	if not DEBUG_LAYOUT:
 		return
-	p.setPen(QPen(QColor('blue'), 0.5))
+	p.setPen(QPen(QColor('blue'), 0.5, join=Qt.MiterJoin))
 	p.setBrush(Qt.NoBrush)
 	if isinstance(layout, QGridLayout):
 		for r in range(layout.rowCount()):
@@ -69,18 +66,14 @@ class CatToolbarSpacer(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatSca
 	def paintEvent(self, event):
 		self.updateScaleFromFontMetrics()
 		rect = self.adjustRectByOverlap(self.rect())
-
+		borderPath = self.getBorderPath(rect)
 		# get Colors:
-		borderBrush = self.getBorderBrush()
-		bkgColor1 = self.getBackgroundBrush(rect)
+		borderPen = getBorderPen(self.getBorderBrush())
+		bkgBrush = self.getBackgroundBrush(rect)
 		# do drawing:
 		with QPainter(self) as p:
 			p.setRenderHint(QPainter.Antialiasing, True)
-
-			p.setPen(QPen(borderBrush, 1))
-			p.setBrush(bkgColor1)
-			borderPath = self.getBorderPath(rect)
-			p.drawPath(borderPath)
+			paintFramedWidgetBkg(p, bkgBrush, (borderPath, borderPen))
 
 
 class CatPanel(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
@@ -133,29 +126,19 @@ class CatPanel(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatScalableWid
 		drawLayoutBorders = False
 		self.updateScaleFromFontMetrics()
 		rect = self.adjustRectByOverlap(self.rect())
+		borderPath = self.getBorderPath(rect)
 
 		# get Colors:
 		bkgBrush = self.getBackgroundBrush(rect)
-		borderBrush = self.getBorderBrush()
-		if drawLayoutBorders:
-			layoutBorderPen = getLayoutBorderPen(self)
-		else:
-			layoutBorderPen = None
+		borderPen = getBorderPen(self.getBorderBrush())
 
 		# do drawing:
 		with QPainter(self) as p:
 			p.setRenderHint(QPainter.Antialiasing, True)
-
-			p.setPen(QPen(borderBrush, 1))
-			p.setBrush(bkgBrush)
-			borderPath = self.getBorderPath(rect)
-			p.drawPath(borderPath)
+			paintFramedWidgetBkg(p, bkgBrush, (borderPath, borderPen))
 
 			if drawLayoutBorders:
-				p.setPen(layoutBorderPen)
-				p.setBrush(Qt.NoBrush)
-				p.drawRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5))
-
+				drawLayoutBorder(p, self.rect())
 			paintGridLayoutBorders(p, self.layout())
 
 	@CrashReportWrapped
@@ -202,9 +185,10 @@ class CatSeparator(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyle
 		with QPainter(self) as p:
 			p.setRenderHint(QPainter.Antialiasing, True)
 
-			p.setPen(QPen(borderBrush, 1))
+			p.setPen(QPen(borderBrush, 1, join=Qt.MiterJoin))
 			p.setBrush(borderBrush)
-			p.drawRect(self.rect())
+			rect = self.rect()
+			p.drawLine(rect.topLeft(), rect.bottomRight())
 
 	@CrashReportWrapped
 	def sizeHint(self) -> QSize:
@@ -1158,23 +1142,12 @@ class CatButton(CatFocusableMixin, ShortcutMixin, QPushButton, CatSizePolicyMixi
 
 		self.updateScaleFromFontMetrics()
 		rect = self.adjustRectByOverlap(self.rect())
-		borderWidth = 1.
-		if self.isDefault():
-			font = QFont(self.font())
-			font.setWeight(font.weight() + 7)
-		else:
-			font = self.font()
+
 		isOn = self.isChecked()
 		bkgBrush = self.getPressedBackgroundBrush(rect, isOn) if self.isDown() or self.isChecked() else self.getBackgroundBrush(rect, isOn)
 		textColor = self.getTextBrush(isOn)
-		borderBrush = self.getBorderBrush(isOn)
-		borderBrush2 = self.getBorderBrush2(isOn)
-		borderPen = QPen(borderBrush, borderWidth)
-		borderPen2 = QPen(borderBrush2, borderWidth)
-		if drawLayoutBorders:
-			layoutBorderPen = getLayoutBorderPen(self)
-		else:
-			layoutBorderPen = None
+		borderPen = getBorderPen(self.getBorderBrush(isOn))
+		borderPen2 = getBorderPen(self.getBorderBrush2(isOn))
 
 		text = self.getElidedText()
 		hasIcon = not self.icon().isNull()
@@ -1183,44 +1156,23 @@ class CatButton(CatFocusableMixin, ShortcutMixin, QPushButton, CatSizePolicyMixi
 		with QPainter(self) as p:
 			p.setRenderHint(QPainter.Antialiasing, True)
 
-			p.setPen(borderPen)
-			p.setBrush(bkgBrush)
-			p.drawPath(self._borderPath)
-
-			p.setPen(borderPen2)
-			p.setBrush(Qt.NoBrush)
-			p.drawPath(self._borderPath2)
+			paintFramedWidgetBkg(p, bkgBrush, (self._borderPath, borderPen), (self._borderPath2, borderPen2))
 
 			if hasIcon:
 				mode = QIcon.Active if self.isHighlighted() else QIcon.Normal
 				mode = QIcon.Selected if self.isDefault() else mode
 				mode = mode if self.isEnabled() else QIcon.Disabled
-
-				p.drawPixmap(self._iconRect, self.icon().pixmap(
-					self._iconRect.size(),
-					mode=mode,
-					state=QIcon.On if isOn else QIcon.Off
-				))
-
-				if drawLayoutBorders:
-					p.setPen(layoutBorderPen)
-					p.setBrush(Qt.NoBrush)
-					p.drawRect(QRectF(self._iconRect).adjusted(0.5, 0.5, -0.5, -0.5))
+				paintIcon(p, self.icon(), self._iconRect, mode, isOn)
 
 			if text:
-				p.setPen(QPen(textColor, 1))
-				p.setFont(font)
-				p.drawText(self._textRect, Qt.TextShowMnemonic, text)
-
-				if drawLayoutBorders:
-					p.setPen(layoutBorderPen)
-					p.setBrush(Qt.NoBrush)
-					p.drawRect(QRectF(self._textRect).adjusted(0.5, 0.5, -0.5, -0.5))
+				paintText(p, text, self._textRect, textColor, self.font(), self.isDefault())
 
 			if drawLayoutBorders:
-				p.setPen(layoutBorderPen)
-				p.setBrush(Qt.NoBrush)
-				p.drawRect(QRectF(rect.marginsRemoved(self.qMargins)).adjusted(0.5, 0.5, -0.5, -0.5))
+				drawLayoutBorder(p, rect.marginsRemoved(self.qMargins))
+				if hasIcon:
+					drawLayoutBorder(p, self._iconRect)
+				if text:
+					drawLayoutBorder(p, self._textRect)
 
 	def shortcutEvent(self, event: QShortcutEvent) -> None:
 		if not event.isAmbiguous():
@@ -1258,7 +1210,7 @@ class CatFramelessButton(CatButton):
 
 
 class Switch(CatFocusableMixin, ShortcutMixin, QAbstractButton, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
-	def __init__(self, parent=None, track_diameter=17, thumb_radius=8):
+	def __init__(self, parent=None):
 		super().__init__(parent=parent)
 		self.setCheckable(True)
 		self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -1269,11 +1221,11 @@ class Switch(CatFocusableMixin, ShortcutMixin, QAbstractButton, CatSizePolicyMix
 		self._highlightOnHover = False
 		self._highlightOnFocus = True
 
-		self._track_diameter = track_diameter
-		self._thumb_margin = 1
+		self._track_diameter: int = 17
+		self._thumb_margin: int = 1
 		self._scale: float = 1.0
 
-		self._offsetState = 0
+		self._offsetState: float = 0
 
 	@property
 	def trackDiameter(self) -> int:
@@ -1313,11 +1265,11 @@ class Switch(CatFocusableMixin, ShortcutMixin, QAbstractButton, CatSizePolicyMix
 		return (baseOffset * (1-self.offsetState) + self.offsetState * (self.toggleWidth() - baseOffset)) + self.toggleOffset()
 
 	@pyqtProperty(float)
-	def offsetState(self):
+	def offsetState(self) -> float:
 		return self._offsetState
 
 	@offsetState.setter
-	def offsetState(self, value):
+	def offsetState(self, value: float):
 		self._offsetState = value
 		self.update()
 
@@ -1579,10 +1531,8 @@ class CatCheckBox(CatFocusableMixin, ShortcutMixin, QCheckBox, CatSizePolicyMixi
 		rect = self.rect()
 
 		text = self._staticText if self._useStaticText else self.getElidedText()
-		hasIcon = not self.icon().isNull()
 		font = self.font()
 
-		checkMarkSize = self.getCheckMarkSize()
 		checkMarkRect = self.getCheckMarkRect(rect)
 
 		textSize = self.getTextSize(text, font)
@@ -1665,31 +1615,18 @@ class CatCheckBox(CatFocusableMixin, ShortcutMixin, QCheckBox, CatSizePolicyMixi
 
 		self.updateScaleFromFontMetrics()
 		rect = self.rect()
-		borderWidth = 1.
 		font = self.font()
 		bkgBrush = self.getPressedBackgroundBrush(rect) if self.isDown() else self.getBackgroundBrush(rect)
 		textColor = self._fromCS(self._normalColorPalette.textColor)
 		checkMarkColor = self.getTextBrush()
-		borderBrush = self.getBorderBrush()
-		borderBrush2 = self.getBorderBrush2()
-		borderPen = QPen(borderBrush, borderWidth)
-		borderPen2 = QPen(borderBrush2, borderWidth)
-		if drawLayoutBorders:
-			layoutBorderPen = getLayoutBorderPen(self)
-		else:
-			layoutBorderPen = None
+		borderPen = getBorderPen(self.getBorderBrush())
+		borderPen2 = getBorderPen(self.getBorderBrush2())
 
 		# do drawing:
 		with QPainter(self) as p:
 			p.setRenderHint(QPainter.Antialiasing, True)
 
-			p.setPen(borderPen)
-			p.setBrush(bkgBrush)
-			p.drawPath(self._borderPath)
-
-			p.setPen(borderPen2)
-			p.setBrush(Qt.NoBrush)
-			p.drawPath(self._borderPath2)
+			paintFramedWidgetBkg(p, bkgBrush, (self._borderPath, borderPen), (self._borderPath2, borderPen2))
 
 			checkState = self.checkState()
 			if checkState == Qt.Checked:
@@ -1704,24 +1641,13 @@ class CatCheckBox(CatFocusableMixin, ShortcutMixin, QCheckBox, CatSizePolicyMixi
 				pass
 
 			if self.text():
-				p.setPen(QPen(textColor, 1))
-				p.setFont(font)
-				if self._useStaticText:
-					text = self._staticText
-					p.drawStaticText(self._textRect.topLeft(), text)
-				else:
-					text = self.getElidedText()
-					p.drawText(self._textRect, Qt.TextShowMnemonic, text)
-
-				if drawLayoutBorders:
-					p.setPen(layoutBorderPen)
-					p.setBrush(Qt.NoBrush)
-					p.drawRect(QRectF(self._textRect).adjusted(0.5, 0.5, -0.5, -0.5))
+				text = self._staticText if self._useStaticText else self.getElidedText()
+				paintText(p, text, self._textRect, textColor, font, False)
 
 			if drawLayoutBorders:
-				p.setPen(layoutBorderPen)
-				p.setBrush(Qt.NoBrush)
-				p.drawRect(QRectF(rect.marginsRemoved(self.qMargins)).adjusted(0.5, 0.5, -0.5, -0.5))
+				if self.text():
+					drawLayoutBorder(p, self._textRect)
+				drawLayoutBorder(p, rect.marginsRemoved(self.qMargins))
 
 
 class CatRadioButton(CatFocusableMixin, ShortcutMixin, QRadioButton, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
@@ -1805,7 +1731,6 @@ class CatRadioButton(CatFocusableMixin, ShortcutMixin, QRadioButton, CatSizePoli
 		rect = self.rect()
 
 		text = self._staticText if self._useStaticText else self.getElidedText()
-		hasIcon = not self.icon().isNull()
 		font = self.font()
 
 		checkMarkSize = self.getCheckMarkSize()
@@ -1882,58 +1807,32 @@ class CatRadioButton(CatFocusableMixin, ShortcutMixin, QRadioButton, CatSizePoli
 
 		self.updateScaleFromFontMetrics()
 		rect = self.rect()
-		borderWidth = 1.
 		font = self.font()
 		bkgBrush = self.getPressedBackgroundBrush(rect) if self.isDown() else self.getBackgroundBrush(rect)
 		textColor = self._fromCS(self._normalColorPalette.textColor)
 		checkMarkColor = self.getTextBrush()
-		borderBrush = self.getBorderBrush()
-		borderBrush2 = self.getBorderBrush2()
-		borderPen = QPen(borderBrush, borderWidth)
-		borderPen2 = QPen(borderBrush2, borderWidth)
-		if drawLayoutBorders:
-			layoutBorderPen = getLayoutBorderPen(self)
-		else:
-			layoutBorderPen = None
-
+		borderPen = getBorderPen(self.getBorderBrush())
+		borderPen2 = getBorderPen(self.getBorderBrush2())
 
 		# do drawing:
 		with QPainter(self) as p:
 			p.setRenderHint(QPainter.Antialiasing, True)
 
-			p.setPen(borderPen)
-			p.setBrush(bkgBrush)
-			p.drawPath(self._borderPath)
-
-			p.setPen(borderPen2)
-			p.setBrush(Qt.NoBrush)
-			p.drawPath(self._borderPath2)
+			paintFramedWidgetBkg(p, bkgBrush, (self._borderPath, borderPen), (self._borderPath2, borderPen2))
 
 			if self.isChecked():
-				scale = self._scale
 				p.setPen(Qt.NoPen)
 				p.setBrush(checkMarkColor)
 				p.drawEllipse(self._checkMark)
 
 			if self.text():
-				p.setPen(QPen(textColor, 1))
-				p.setFont(font)
-				if self._useStaticText:
-					text = self._staticText
-					p.drawStaticText(self._textRect.topLeft(), text)
-				else:
-					text = self.getElidedText()
-					p.drawText(self._textRect, Qt.TextShowMnemonic, text)
-
-				if drawLayoutBorders:
-					p.setPen(layoutBorderPen)
-					p.setBrush(Qt.NoBrush)
-					p.drawRect(QRectF(self._textRect).adjusted(0.5, 0.5, -0.5, -0.5))
+				text = self._staticText if self._useStaticText else self.getElidedText()
+				paintText(p, text, self._textRect, textColor, font, False)
 
 			if drawLayoutBorders:
-				p.setPen(layoutBorderPen)
-				p.setBrush(Qt.NoBrush)
-				p.drawRect(QRectF(rect.marginsRemoved(self.qMargins)).adjusted(0.5, 0.5, -0.5, -0.5))
+				if self.text():
+					drawLayoutBorder(p, self._textRect)
+				drawLayoutBorder(p, rect.marginsRemoved(self.qMargins))
 
 
 class CatProgressBar(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
@@ -2048,13 +1947,13 @@ class CatProgressBar(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatSty
 		rect = self.rect()
 		# get Colors:
 		bkgBrush = self.getBackgroundBrush(rect)
-		borderPen = QPen(self.getBorderBrush(), 1)
+		borderPen = QPen(self.getBorderBrush(), 1, join=Qt.MiterJoin)
 
 		progressBrush = self.getIndicatorBrush(rect)
-		progressBorderPen = QPen(self.getIndicatorBorderBrush(), 1)
+		progressBorderPen = QPen(self.getIndicatorBorderBrush(), 1, join=Qt.MiterJoin)
 
-		textPen1 =  QPen(self.getTextBrush(), 1)
-		textPen2 =  QPen(self.getTextBrush(), 1)
+		textPen1 =  QPen(self.getTextBrush(), 1, join=Qt.MiterJoin)
+		textPen2 =  QPen(self.getTextBrush(), 1, join=Qt.MiterJoin)
 
 		text = self.text()
 
@@ -2165,11 +2064,6 @@ class Spoiler(CatFocusableMixin, ShortcutMixin, CatClickableMixin, QWidget, CatS
 		if self._drawDisabled and not drawLayoutBorders:
 			return
 
-		if drawLayoutBorders:
-			layoutBorderPen = getLayoutBorderPen(self)
-		else:
-			layoutBorderPen = None
-
 		rect = self.rect()
 		font = self.font()
 
@@ -2196,36 +2090,15 @@ class Spoiler(CatFocusableMixin, ShortcutMixin, CatClickableMixin, QWidget, CatS
 
 		with QPainter(self) as p:
 			p.setRenderHint(QPainter.Antialiasing)
-			w = iconRect.width()
-			h = iconRect.height()
-			t = int(iconRect.top() + h * 0.25) + 0.5
-			b = int(iconRect.bottom() - h * 0.25) - 0.5
-			l = int(iconRect.left() + w * 0.25) + 0.5
-			r = int(iconRect.right() - w * 0.25) - 0.5
-			if self.isOpen():
-				points = (QPointF(l, t), QPointF(r, t), QPointF((l+r)/2.0, b))
-			else:
-				points = (QPointF(l, b), QPointF(l, t), QPointF(r, (t+b)/2))
-			if not self._drawDisabled:
-				brush = self.getIconBrush()
-				pen = QPen(brush.color())
-				pen.setJoinStyle(Qt.SvgMiterJoin)
-				pen.setMiterLimit(5)
-				p.setPen(pen)
-				p.setBrush(brush)
-				p.drawPolygon(*points)
 
-				p.setPen(QPen(self.getTextBrush().color(), 1))
-				p.drawText(textRect, Qt.TextShowMnemonic, self._title)
+			if not self._drawDisabled:
+				paintSpoilerTriangle(p, iconRect, self.getIconBrush(), self.isOpen())
+				paintText(p, self._title, textRect, self.getTextBrush(), font, False)
 
 			if drawLayoutBorders:
-				p.setPen(layoutBorderPen)
-				p.setBrush(Qt.NoBrush)
-				p.drawRect(iconRect)
-				p.drawRect(textRect)
-
-				p.setPen(Pens.red)
-				p.drawRect(self.rect())
+				drawLayoutBorder(p, iconRect)
+				drawLayoutBorder(p, textRect)
+				drawLayoutBorder(p, self.rect().marginsRemoved(self.qMargins))
 
 
 class DataTableModel(QAbstractTableModel):
@@ -2866,7 +2739,6 @@ class CatWindowMixin:
 
 
 __all__ = [
-	'getLayoutBorderPen',
 	'CatToolbarSpacer',
 	'CatPanel',
 	'CatSeparator',

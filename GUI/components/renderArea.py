@@ -13,7 +13,8 @@ from PyQt5.QtGui import QBrush, QColor, QFont, QPaintEvent, QPainter, QPainterPa
 from PyQt5.QtWidgets import QWidget
 
 from ...GUI.components.Layouts import WithBlock
-from ...GUI.components.catWidgetMixins import CORNERS, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin, PaintEventDebug, palettes
+from ...GUI.components.catWidgetMixins import CORNERS, CatFramedWidgetMixin, CatScalableWidgetMixin, \
+	CatStyledWidgetMixin, PaintEventDebug, palettes, paintFramedWidgetBkg, getBorderPen
 from ...utils import Deprecated
 from ...utils.collections_ import Stack
 from ...utils.utils import CrashReportWrapped
@@ -1106,7 +1107,7 @@ class RenderArea(QWidget, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyle
 
 		# get Colors:
 		bkgBrush = self.getBackgroundBrush(rect)
-		borderBrush = self.getBorderBrush()
+		borderPen = getBorderPen(self.getBorderBrush())
 
 		paintDstRect = event.rect()
 		boundingRect = self.picture.boundingRect()
@@ -1123,10 +1124,8 @@ class RenderArea(QWidget, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyle
 			self.picture.play(p)
 			p.restore()
 
-			p.setPen(QPen(borderBrush, 1))
-			p.setBrush(Brushes.transparent)
 			borderPath = self.getBorderPath(rect)
-			p.drawPath(borderPath)
+			paintFramedWidgetBkg(p, Qt.NoBrush, (borderPath, borderPen))
 
 	def wheelEvent(self, event: QWheelEvent) -> None:
 		if event.angleDelta().y() == 0:

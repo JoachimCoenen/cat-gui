@@ -5,12 +5,14 @@ from functools import reduce
 from typing import Callable, List, NewType, Optional
 
 from PyQt5.QtCore import QEvent, QLine, QLineF, QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
-from PyQt5.QtGui import QBrush, QColor, QCursor, QFont, QHelpEvent, QIcon, QKeyEvent, QKeySequence, QMouseEvent, QPaintEvent, QPainter, QPainterPath, QPen, QResizeEvent, \
-	QTransform, QWheelEvent
+from PyQt5.QtGui import QBrush, QColor, QCursor, QFont, QHelpEvent, QIcon, QKeyEvent, QKeySequence, QMouseEvent, QPaintEvent, \
+	QPainter, QPainterPath, QPen, QResizeEvent, QTransform, QWheelEvent
 from PyQt5.QtWidgets import QApplication, QStyle, QToolTip, QWhatsThis, QWidget
 
-from ...GUI.components.catWidgetMixins import CAN_AND_REQ_BUT_NO_BORDER_OVERLAP, CAN_AND_REQ_OVERLAP, CatFocusableMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, \
-	CatSizePolicyMixin, CatStyledWidgetMixin, Margins, OverlapCharacteristics, PaintEventDebug, PreciseOverlap, RoundedCorners, ShortcutMixin, maskCorners, palettes
+from ...GUI.components.catWidgetMixins import CAN_AND_REQ_BUT_NO_BORDER_OVERLAP, CAN_AND_REQ_OVERLAP, CatFocusableMixin, \
+	CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, CatStyledWidgetMixin, Margins, OverlapCharacteristics, \
+	PaintEventDebug, PreciseOverlap, RoundedCorners, ShortcutMixin, maskCorners, palettes, paintIcon, drawLayoutBorder, \
+	paintText, paintPath, getBorderPen
 from ...GUI.enums import SizePolicy, TAB_POSITION_EAST_WEST, TabPosition
 from ...utils import Deprecated
 from ...utils.utils import CrashReportWrapped
@@ -974,9 +976,9 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 		selectedTextColor = self.getTextBrush()
 		indicatorColor = self.getIndicatorBorderBrush()
 
-		borderPen = QPen(borderColor, 1)
+		borderPen = getBorderPen(borderColor)
 		borderPen.setJoinStyle(Qt.BevelJoin)
-		indicatorPen = QPen(indicatorColor, 1)
+		indicatorPen = getBorderPen(indicatorColor)
 		indicatorPen.setJoinStyle(Qt.MiterJoin)
 		indicatorPen.setWidth(0)
 		return CatTabBarStyle(
@@ -1035,100 +1037,74 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 	def _paintTab(self, p: QPainter, tab: Tab, style: CatTabBarStyle, selected: bool, allTabsBorderPath: QPainterPath, allTabsBorderPathForIndicator: QPainterPath) -> None:
 		drawLayoutBorders = False
 
-		p.setPen(style.borderPen)
-		if selected:
-			p.setBrush(style.selectedBackgroundBrush)
-		else:
-			p.setBrush(style.backgroundBrush)
-
 		borderRect = tab.layout.borderRect.translated(tab.dragOffset)
 		adjustedBorderRect = QRectF(borderRect).adjusted(0.5, 0.5, -0.5, -0.5)
 		borderPath = QPainterPath()
 		borderPath.addRect(adjustedBorderRect)
-
 		borderPath = allTabsBorderPath.intersected(borderPath)
 		borderPath.closeSubpath()
-		p.drawPath(borderPath)
+
+		bkgBrush = style.selectedBackgroundBrush if selected else style.backgroundBrush
+		paintPath(p, bkgBrush, borderPath, style.borderPen)
 
 		if selected:
 			indicatorPath = self._getIndicatorPath(tab, style, allTabsBorderPathForIndicator)
-			p.setPen(Qt.NoPen)
-			p.setBrush(style.indicatorPen.color())
-			p.drawPath(indicatorPath)
+			paintPath(p, style.indicatorPen.color(), indicatorPath, Qt.NoPen)
 
 		p.save()
 		if not tab.dragOffset.isNull():
 			p.translate(tab.dragOffset)
 
+		mode = QIcon.Normal if self.isEnabled() else QIcon.Disabled
 		if tab.options.hasIcon:
-			mode = QIcon.Normal  # .Selected if selected else QIcon.Normal
-			mode = mode if self.isEnabled() else QIcon.Disabled
-			p.drawPixmap(tab.layout.iconRect, tab.options.icon.pixmap(
-				tab.layout.iconRect.size(),
-				mode=mode,
-				state=QIcon.On if selected else QIcon.Off
-			))
+			paintIcon(p, tab.options.icon, tab.layout.iconRect, mode, isOn=selected)
 			if drawLayoutBorders:
-				p.setPen(style.layoutBorderPen)
-				p.setBrush(Qt.NoBrush)
-				p.drawRect(QRectF(tab.layout.iconRect).adjusted(0.5, 0.5, -0.5, -0.5))
+				drawLayoutBorder(p, tab.layout.iconRect)
 
 		textRect = tab.layout.textRect
 		p.save()
 		if self.isVertical():
-			if self.position() == TabPosition.East:
-				angle = 90.
-			else:
-				angle = -90.
+			angle = 90. if self.position() == TabPosition.East else -90.
 			invTextTransform = QTransform()
 			invTextTransform.rotate(-angle)
 			textRect = invTextTransform.mapRect(textRect)
 			p.rotate(angle)
 
-		if drawLayoutBorders:
-			p.setPen(style.layoutBorderPen)
-			p.setBrush(Qt.NoBrush)
-			p.drawRect(QRectF(textRect).adjusted(0.5, 0.5, -0.5, -0.5))
-
 		if selected:
 			textPen = style.selectedTextPen
 		else:
 			textPen = style.textPen
-
 		if tab.options.textColor is not None:
 			textPen = QPen(textPen)
 			textPen.setColor(tab.options.textColor)
-		p.setPen(textPen)
-		p.setFont(style.font)
-		p.drawText(textRect, Qt.AlignVCenter, tab.options.text)
+
+		paintText(p, tab.options.text, textRect, textPen, style.font, False)
+
+		if drawLayoutBorders:
+			drawLayoutBorder(p, textRect)
 		p.restore()
 
 		if self._tabsClosable:
 			cursorPos = self.mapFromGlobal(QCursor.pos())
 			cursorInCloseRect = tab.layout.closeRect.contains(cursorPos + self._translation - tab.dragOffset, False)
-			p.drawPixmap(tab.layout.closeRect, self.getCloseIconOrDefault().pixmap(
-				tab.layout.closeRect.size(),
-				mode=QIcon.Normal if self.isEnabled() else QIcon.Disabled,
-				state=QIcon.On if cursorInCloseRect else QIcon.Off
-			))
+			paintIcon(p, self.getCloseIconOrDefault(), tab.layout.closeRect, mode, isOn=cursorInCloseRect)
 
 			if drawLayoutBorders:
-				p.setPen(style.layoutBorderPen)
-				p.setBrush(Qt.NoBrush)
-				p.drawRect(QRectF(tab.layout.closeRect).adjusted(0.5, 0.5, -0.5, -0.5))
+				drawLayoutBorder(p, tab.layout.closeRect)
 
 		p.restore()
 
 	def _drawBase(self, p: QPainter, style: CatTabBarStyle, rect: QRect) -> None:
 		p.setPen(style.borderPen)
-		if self.position() == TabPosition.North:
-			p.drawLine(QLineF(rect.left(), rect.bottom()+1 - 0.5, rect.right()+1, rect.bottom()+1 - 0.5))
-		elif self.position() == TabPosition.South:
-			p.drawLine(QLineF(rect.left(), rect.top() + 0.5,    rect.right()+1, rect.top() + 0.5))
-		elif self.position() == TabPosition.East:
-			p.drawLine(QLineF(rect.left() + 0.5, rect.top(),    rect.left() + 0.5, rect.bottom()+1))
-		elif self.position() == TabPosition.West:
-			p.drawLine(QLineF(rect.right()+1 - 0.5, rect.top(),   rect.right()+1 - 0.5, rect.bottom()+1))
+		match self.position():
+			case TabPosition.North:
+				p.drawLine(QLineF(rect.left(), rect.bottom()+1 - 0.5, rect.right()+1, rect.bottom()+1 - 0.5))
+			case TabPosition.South:
+				p.drawLine(QLineF(rect.left(), rect.top() + 0.5,    rect.right()+1, rect.top() + 0.5))
+			case TabPosition.East:
+				p.drawLine(QLineF(rect.left() + 0.5, rect.top(),    rect.left() + 0.5, rect.bottom()+1))
+			case TabPosition.West:
+				p.drawLine(QLineF(rect.right()+1 - 0.5, rect.top(),   rect.right()+1 - 0.5, rect.bottom()+1))
 
 	_roundedCornerFiltersForSelected: dict[TabPosition, RoundedCorners] = {
 		TabPosition.North: (True, True, False, False,),
