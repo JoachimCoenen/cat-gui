@@ -5,7 +5,8 @@ from . import Style
 from .pythonGUI import PythonGUI
 from PyQt5 import QtWidgets, QtCore
 
-from ..Serializable.serializableDataclasses import getDecorator, getKwargs, getType, isReadOnly, SerializableDataclass
+from ..Serializable.serializableDataclasses import getDecorator, getKwargs, getType, isReadOnly, SerializableDataclass, \
+	getField
 from ..Serializable.utils import getValueOrValueOfProp, PropertyDecorator
 from ..utils import first
 
@@ -45,7 +46,7 @@ class AutoGUI(PythonGUI):
 
 	def propertyField(self, owner: SerializableDataclass, field: Field | str, hasLabel=True, **kwargs):
 		if is_dataclass(owner) and isinstance(field, str):
-			field = first((f for f in fields(owner) if f.name == field), field)
+			field = getField(owner, field)
 		value = getattr(owner, field.name)
 		type_ = getType(field)
 		kwargs_ = getKwargs(field)

@@ -113,19 +113,16 @@ class SerializableDataclass:
 		:return:
 		"""
 		fields_ = fields(self)
-		errors, warnings = [], []
+		results = []
 		for f in fields_:
-			decorators = getDecorators(f)
-			validators = [d for d in decorators if isinstance(d, pd.Validator)]
-			for validator in validators:
-				valRes = validator.validator(getattr(self, f.name))
-				if valRes is not None:
-					if valRes.style == 'error':
-						errors.append(valRes)
-						break
-					elif valRes.style == 'warning':
-						warnings.append(valRes)
-		return errors + warnings
+			results.extend(self.validateField(f))
+		return results
+
+	def validateField(self, f: Field) -> list[pd.ValidatorResult]:
+		decorators = getDecorators(f)
+		validators = [d for d in decorators if isinstance(d, pd.Validator)]
+		value = getattr(self, f.name)
+		return list(filter(None, (validator.validator(value) for validator in validators)))
 
 	def copyFrom(self: Self, other: Self) -> None:
 		"""sets self to a shallow copy of other"""
