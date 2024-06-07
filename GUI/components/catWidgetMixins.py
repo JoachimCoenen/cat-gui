@@ -1279,6 +1279,26 @@ class palettes:  # just a namespace
 		iconColor=_iconColor,
 	)
 
+	borderlessPanelColorPalette = ColorPalette(
+		name='borderlessPanelColorPalette',
+		backgroundColor=_panelColor,
+		backgroundColor2=_panelColor,
+		borderColor=CLEAR_COLOR_COLOR_SET,
+		borderColor2=CLEAR_COLOR_COLOR_SET,
+		textColor=_inputTextColor,
+		iconColor=_iconColor,
+	)
+
+	borderlessWindowPanelColorPalette = ColorPalette(
+		name='borderlessWindowPanelColorPalette',
+		backgroundColor=_windowColor,
+		backgroundColor2=_windowColor,
+		borderColor=CLEAR_COLOR_COLOR_SET,
+		borderColor2=CLEAR_COLOR_COLOR_SET,
+		textColor=_inputTextColor,
+		iconColor=_iconColor,
+	)
+
 	buttonColorPalette = ColorPalette(
 		name='buttonColorPalette',
 		backgroundColor=_buttonColor1,

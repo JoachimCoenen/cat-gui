@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import QApplication, QDialog, QShortcut, QSizePolicy, QWidg
 from ._styles import Style, applyStyle, getStyles
 from .components import codeEditor
 from .components.Layouts import *
-from .components.Widgets import BuilderTreeView, CatBox, CatButton, CatCheckBox, CatComboBox, CatElidedLabel, CatFramelessButton, CatGradiantButton, CatLabel, \
+from .components.Widgets import BuilderTreeView, CatButton, CatCheckBox, CatComboBox, CatElidedLabel, CatFramelessButton, CatGradiantButton, CatLabel, \
 	CatMultiLineTextField, CatOverlay, CatPanel, CatProgressBar, CatRadioButton, CatScrollArea, CatSeparator, CatTextField, CatToolButton, CatToolbarSpacer, DataBuilderTreeView, \
 	DataTableModel, DataTableView, Int64SpinBox, Spoiler, Switch
 from .components.catTabBar import CatTabBar, TabOptions
@@ -1559,6 +1559,7 @@ class PythonGUI(CatScalableWidgetMixin):
 			roundedCorners: RoundedCorners = ...,
 			windowPanel: bool = False,
 			seamless: bool = False,
+			borderless: bool = False,
 			**kwargs
 	) -> DoubleColumnLayout:
 		layoutCls = getDoubleColumnLayout(seamless)
@@ -1567,7 +1568,7 @@ class PythonGUI(CatScalableWidgetMixin):
 			kwargs.setdefault('margins', NO_MARGINS)
 		return self._panel(
 			preventVStretch=preventVStretch, preventHStretch=preventHStretch, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing,
-			overlap=overlap, roundedCorners=roundedCorners, windowPanel=windowPanel, layoutCls=layoutCls, **kwargs
+			overlap=overlap, roundedCorners=roundedCorners, windowPanel=windowPanel, layoutCls=layoutCls, borderless=borderless, **kwargs
 		)
 
 	def hPanel(
@@ -1580,6 +1581,7 @@ class PythonGUI(CatScalableWidgetMixin):
 			roundedCorners: RoundedCorners = ...,
 			windowPanel: bool = False,
 			seamless: bool = False,
+			borderless: bool = False,
 			**kwargs
 	) -> SingleRowLayout:
 		layoutCls = getSingleRowLayout(seamless)
@@ -1588,7 +1590,7 @@ class PythonGUI(CatScalableWidgetMixin):
 			kwargs.setdefault('margins', NO_MARGINS)
 		return self._panel(
 			preventVStretch=preventVStretch, preventHStretch=preventHStretch, verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing,
-			overlap=overlap, roundedCorners=roundedCorners, windowPanel=windowPanel, layoutCls=layoutCls, **kwargs
+			overlap=overlap, roundedCorners=roundedCorners, windowPanel=windowPanel, layoutCls=layoutCls, borderless=borderless, **kwargs
 		)
 
 	def vSeparator(self):
@@ -1771,17 +1773,16 @@ class PythonGUI(CatScalableWidgetMixin):
 		editor2.setModel(model)
 		return editor2
 
+	@Deprecated(msg="use ``gui.vPanel(..., borderless=True)`` instead")
 	def box(self, preventVStretch: bool = False, preventHStretch: bool = False, verticalSpacing: int = -1, horizontalSpacing: int = -1, **kwargs):
-		widget = self.addItem(CatBox, **kwargs)
-
-		qLayout = widget.layout()
-		if type(qLayout) is not DoubleColumnLayout.QLayoutType:
-			qLayout = DoubleColumnLayout.QLayoutType()
-			# TODO: ? self.setContentMargins(qLayout)
-			widget.setLayout(qLayout)
-		layoutKwArgs = dict(verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing)
-		self.addkwArgsToItem(qLayout, layoutKwArgs)
-		return DoubleColumnLayout(self, qLayout, preventVStretch, preventHStretch)
+		return self.vPanel(
+			preventVStretch=preventVStretch,
+			preventHStretch=preventHStretch,
+			verticalSpacing=verticalSpacing,
+			horizontalSpacing=horizontalSpacing,
+			borderless=True,
+			**kwargs
+		)
 
 	def addHSpacer(self, size: int, sizePolicy: SizePolicy):
 		spacer = self.currentLayout.addItem(QtWidgets.QSpacerItem, initArgs=(0, 0))

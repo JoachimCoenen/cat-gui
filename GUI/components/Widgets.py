@@ -89,6 +89,7 @@ class CatPanel(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatScalableWid
 		self._roundedCorners = CORNERS.NONE
 		self._default: bool = False
 		self._windowPanel: bool = False
+		self._hasBorder: bool = True
 		self._neverInactive = True
 		self._updateColorPalette()
 
@@ -108,13 +109,22 @@ class CatPanel(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatScalableWid
 			self._windowPanel = windowPanel
 			self._updateColorPalette()
 
+	def isBorderless(self) -> bool:
+		return not self._hasBorder
+
+	def setBorderless(self, isBorderless: bool) -> None:
+		hasBorder = not isBorderless
+		if hasBorder != self._hasBorder:
+			self._hasBorder = hasBorder
+			self._updateColorPalette()
+
 	def _updateColorPalette(self) -> None:
 		if self.isDefault():
 			colorPalette = palettes.defaultButtonColorPalette
 		elif self.isWindowPanel():
-			colorPalette = palettes.windowPanelColorPalette
+			colorPalette = palettes.borderlessWindowPanelColorPalette if self.isBorderless() else palettes.windowPanelColorPalette
 		else:
-			colorPalette = palettes.panelColorPalette
+			colorPalette = palettes.borderlessPanelColorPalette if self.isBorderless() else palettes.panelColorPalette
 		self.setColorPalette(colorPalette)
 
 	@CrashReportWrapped
@@ -2218,46 +2228,6 @@ class Spoiler(CatFocusableMixin, ShortcutMixin, CatClickableMixin, QWidget, CatS
 				p.drawRect(self.rect())
 
 
-class CatBox(QWidget):
-	def __init__(self, parent=None):
-		super().__init__(parent=parent)
-		self._radius: float = 10.
-
-	def radius(self) -> float:
-		return self._radius
-
-	def setRadius(self, radius: float):
-		self._radius = radius
-
-	@PaintEventDebug
-	def paintEvent(self, event):
-		# get Colors:
-		palette = self.palette()
-		if self.isEnabled():
-			palette.setCurrentColorGroup(QPalette.Normal)
-		else:
-			palette.setCurrentColorGroup(QPalette.Disabled)
-
-		bkg_opacity = 1.0
-		text_opacity = 1.0
-		bkg_brush = palette.window()
-		with QPainter(self) as p:
-			p.setRenderHint(QPainter.Antialiasing, True)
-
-			p.setPen(Qt.NoPen)
-
-			p.setBrush(bkg_brush)
-			p.setOpacity(bkg_opacity)
-			p.drawRoundedRect(
-				0,
-				0,
-				self.width(),
-				self.height(),
-				self.radius(),
-				self.radius(),
-			)
-
-
 class DataTableModel(QAbstractTableModel):
 	def __init__(self, parent, headers = ()):
 		QAbstractTableModel.__init__(self, parent)
@@ -2917,7 +2887,6 @@ __all__ = [
 	'CatRadioButton',
 	'CatProgressBar',
 	'Spoiler',
-	'CatBox',
 	'DataTableModel',
 	'DataTableView',
 	'HTMLDelegate',
