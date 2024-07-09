@@ -6,10 +6,10 @@ from typing import Any, Callable, Generic, List, Optional, Sequence, TYPE_CHECKI
 
 from PyQt5.QtCore import QAbstractItemModel, QItemSelectionModel, QModelIndex, QPoint, Qt
 from PyQt5.QtGui import QIcon
+from better_orderedmultidict import OrderedMultiDict as DeOrderedMultiDict
 
 from cat.utils.utils import CrashReportWrapped
 from ...GUI.components.treeBuilderABC import DecorationRole, TreeBuilderABC
-from ...utils.collections_ import OrderedMultiDict
 from ...utils.formatters import formatVal
 
 if TYPE_CHECKING:
@@ -150,8 +150,8 @@ class ListUpdater(Generic[_TT]):
 
 		self.operations: list[Operation] = []
 
-	def _getIndexDict(self, aList: list[_TT]) -> OrderedMultiDict[_TT, int]:
-		aDict: OrderedMultiDict[_TT, int] = OrderedMultiDict[_TT, int]()
+	def _getIndexDict(self, aList: list[_TT]) -> DeOrderedMultiDict[_TT, int]:
+		aDict: DeOrderedMultiDict[_TT, int] = DeOrderedMultiDict[_TT, int]()
 		for i, v in enumerate(aList):
 			aDict.add(v, i)
 		return aDict
@@ -177,7 +177,7 @@ class ListUpdater(Generic[_TT]):
 		iNew = 0
 		while iNew < newListLen:
 			vNew = newList[iNew]
-			iOld = intDict.popFirst(vNew, None)
+			iOld = intDict.popfirst(vNew, None)
 
 			if iOld is None:  # we have a new Item!
 				# InsertOperation:
@@ -206,7 +206,7 @@ class ListUpdater(Generic[_TT]):
 				# 	alreadyVisited.add(valAti)
 				# 	allIndexes = intDict.getall(valAti)
 				# 	allNewIndexes = [oi + (pocketSize * int(oi >= iFirst)) for oi in allIndexes]
-				# 	intDict.setAll(valAti, allNewIndexes)
+				# 	intDict.setall(valAti, allNewIndexes)
 				# del alreadyVisited
 
 			else:
@@ -226,8 +226,8 @@ class ListUpdater(Generic[_TT]):
 						vNew = newList[iNew]
 						if vNew != intList[iOld]:
 							break
-						if iOld == intDict.getFirst(vNew, None):
-							intDict.popFirst(vNew)
+						if iOld == intDict.getfirst(vNew, None):
+							intDict.popfirst(vNew)
 						else:
 							break
 						iNew += 1
@@ -257,7 +257,7 @@ class ListUpdater(Generic[_TT]):
 							allIndexes = intDict.getall(valAti)
 							# allNewIndexes = [oi + ( delta if (iFirst <= oi <= iLast) else (pocketSize if oi < iFirst else 0) ) for oi in allIndexes]
 							allNewIndexes = [oi + ( pocketSize if iFirst > oi+currentIndexDelta else 0 ) for oi in allIndexes]
-							intDict.setAll(valAti, allNewIndexes)
+							intDict.setall(valAti, allNewIndexes)
 						del alreadyVisited
 
 						# # items that are pushed away by the moved items:
@@ -304,7 +304,7 @@ class ListUpdater(Generic[_TT]):
 			# skip items that don't get removed:
 			while iOld < intListLen:
 				vOld = intList[iOld]
-				if newDictCpy.popFirst(vOld, None) is not None:
+				if newDictCpy.popfirst(vOld, None) is not None:
 					newIntList.append(vOld)
 					iOld += 1
 					continue

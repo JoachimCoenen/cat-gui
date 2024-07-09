@@ -4,7 +4,9 @@ from abc import ABC, abstractmethod
 import dataclasses
 from typing import Any, final, IO, Callable, Optional, Mapping, Type, Union
 
-from .collections_ import AddToDictDecorator, Stack, getIfKeyIssubclassOrEqual, OrderedMultiDict
+from better_orderedmultidict import OrderedMultiDict
+
+from .collections_ import AddToDictDecorator, Stack, getIfKeyIssubclassOrEqual
 
 import collections
 

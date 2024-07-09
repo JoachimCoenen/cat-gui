@@ -6,11 +6,13 @@ import sys
 from dataclasses import Field, fields, MISSING
 from typing import Any, Self, Union, Type, Optional, Callable, ForwardRef, ClassVar, IO, Iterator, Hashable
 
+from better_orderedmultidict import OrderedMultiDict
+
 from ..GUI import propertyDecorators as pd
 from .utils import MemoForDeserialization, MemoForSerialization, SerializationPath, get_args, SerializationError, getRef, \
 	typeHintMatchesType, valueMatchesType, BASIC_TYPES_ENUM, BASIC_TYPES, PropertyDecorator, _eval_type
 from ..utils import SINGLETON_FIELD, NoneType, format_full_exc, Nothing
-from ..utils.collections_ import FrozenDict, OrderedMultiDict
+from ..utils.collections_ import FrozenDict
 from ..utils.formatters import formatVal
 from ..utils.logging_ import logError
 
