@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import QAbstractButton, QAbstractItemView, QAbstractSpinBox
 	QScrollArea, QShortcut, QSizePolicy, QStyle, QStyleOptionViewItem, QStyledItemDelegate, QTableView, QTextEdit, \
 	QTreeView, QWidget
 
+from .Layouts import SeamlessQGridLayout
 from ..utilities import connectSafe, safeEmit
 from ...GUI.components.catWidgetMixins import CAN_BUT_NO_BORDER_OVERLAP, CORNERS, CatClickableMixin, CatFocusableMixin, \
 	CatFramedAbstractScrollAreaMixin, CatFramedAreaMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, \
@@ -651,6 +652,13 @@ class CatScrollArea(CatFramedAbstractScrollAreaMixin, QScrollArea, CatStyledWidg
 		self.setLineWidth(1)
 		self._sizeHint: QSize = QSize()
 
+		widget = CatPanel()
+		widget.setRoundedCorners(CORNERS.NONE)
+		widget.setOverlap((1, 1, 1, 1))
+		widget.setWindowPanel(False)
+		widget.setLayout(SeamlessQGridLayout())
+		widget.layout().setContentsMargins(0, 0, 0, 0)
+		self.setWidget(widget)
 	def getBorderBrushes(self, rect: QRect) -> tuple[QBrush, QBrush, QBrush]:
 		bkgBrush = self.getBackgroundBrush(rect)
 		return self.getBorderBrush(), bkgBrush, bkgBrush

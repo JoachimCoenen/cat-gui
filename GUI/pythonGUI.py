@@ -230,7 +230,7 @@ class StackedControl(LayoutBase[SeamlessQStackedWidget]):
 		# if item is not None:
 		# 	deleteWidget(item)
 
-	def addView(self, id_: Optional[str] = None, preventVStretch: bool = False, preventHStretch: bool = False, seamless: bool = False, *, contentsMargins: Margins = None, **kwargs):
+	def addView(self, id_: str | int | None = None, preventVStretch: bool = False, preventHStretch: bool = False, seamless: bool = False, *, contentsMargins: Margins = None, **kwargs):
 		"""
 		Adds a view to the stacked control.
 		:param id_: the id that uniquely identfies the contents of this view within the stacked control.
@@ -251,17 +251,12 @@ class StackedControl(LayoutBase[SeamlessQStackedWidget]):
 			oldIndex = self._qLayout.indexOf(widget)
 			if oldIndex != newIndex:
 				self._moveWidget(oldIndex, newIndex, widget)
-			qLayout: Optional[QtWidgets.QGridLayout] = cast(QtWidgets.QGridLayout, widget.layout())
 		else:
 			widget = self._insertNewWidget(newIndex, id_, None)
-			qLayout: Optional[QtWidgets.QGridLayout] = None
+
 		self._gui.addkwArgsToItem(widget, kwargs)
 		layoutCls = getDoubleColumnLayout(seamless)
-		if type(qLayout) is not layoutCls.QLayoutType:
-			qLayout = layoutCls.QLayoutType()
-			if contentsMargins is not None:
-				qLayout.setContentsMargins(*contentsMargins)
-			widget.setLayout(qLayout)
+		qLayout = ensureWidgetLayoutType(widget, layoutCls.QLayoutType, contentsMargins=contentsMargins)
 
 		self._index += 1
 		return layoutCls(self._gui, qLayout, preventVStretch, preventHStretch, deferBorderFinalization=True, forWidget=widget)
@@ -436,12 +431,10 @@ class SplitterControl(LayoutBase[SeamlessQSplitter]):
 		# handle old widget or create a new widget
 		if widget is not None:
 			self._oldItems.remove(widget)
-			qLayout = widget.layout()
 		else:
 			widget = QWidget()
-			qLayout = layoutCls.QLayoutType()
-			widget.setLayout(qLayout)
-			# stackWidget.layout().setStackingMode(QtWidgets.QStackedLayout.StackAll)
+
+		qLayout = ensureWidgetLayoutType(widget, layoutCls.QLayoutType, contentsMargins=None)
 
 		kwargs.setdefault('contentsMargins', NO_MARGINS)
 		self._gui.addkwArgsToItem(qLayout, kwargs)
@@ -610,6 +603,21 @@ def _setQObjectProperty(item: QObject, propName: str, value: Any, kwargs: dict[s
 			raise
 		hasShortcut = shortcutSetter(item, value, kwargs)
 	return hasShortcut
+
+
+def ensureWidgetLayoutType[T: QtWidgets.QLayout](widget: QWidget, qLayoutType: Type[T], *, contentsMargins: Margins | QMargins | None) -> T:
+	qLayout = widget.layout()
+	if type(qLayout) is not qLayoutType:
+		if qLayout is not None:
+			deleteLayoutImmediately(qLayout)
+		qLayout = qLayoutType()
+		if contentsMargins is not None:
+			if isinstance(contentsMargins, QMargins):
+				qLayout.setContentsMargins(contentsMargins)
+			else:
+				qLayout.setContentsMargins(*contentsMargins)
+		widget.setLayout(qLayout)
+	return qLayout
 
 
 @dataclasses.dataclass(init=False, repr=False, eq=False)
@@ -1469,25 +1477,23 @@ class PythonGUI(CatScalableWidgetMixin):
 		if not scrollBox.widgetResizable():
 			scrollBox.setWidgetResizable(True)
 		widget = scrollBox.widget()
-		if widget is None:
-			widget = QWidget()
-			scrollBox.setWidget(widget)
-
-		layoutCls = getDoubleColumnLayout(seamless)
-		qLayout = widget.layout()
-		if qLayout is None:
-			qLayout = layoutCls.QLayoutType()
-			widget.setLayout(qLayout)
 
 		if contentsMargins is None:
-			qLayout.setContentsMargins(self.qBoxMargins)
+			contentsMargins = NO_MARGINS if seamless else self.qBoxMargins
+
+		layoutCls = getDoubleColumnLayout(seamless)
+		qLayout = ensureWidgetLayoutType(widget, layoutCls.QLayoutType, contentsMargins=contentsMargins)
+
+		if isinstance(contentsMargins, QMargins):
+			qLayout.setContentsMargins(contentsMargins)
 		else:
 			qLayout.setContentsMargins(*contentsMargins)
+
 		layoutKwArgs = dict(verticalSpacing=verticalSpacing, horizontalSpacing=horizontalSpacing)
 		self.addkwArgsToItem(qLayout, layoutKwArgs)
 		return layoutCls(self, qLayout, preventVStretch, preventHStretch)
 
-	def frameBox(self, preventVStretch: bool = False, preventHStretch: bool = False, **kwargs):
+	def frameBox(self, preventVStretch: bool = False, preventHStretch: bool = False, seamless: bool = False, **kwargs):
 		"""
 		Creates a framed box. has to be used in an ``with`` statement (``with gui.frameBox():``).
 		Everything within the with statement will be inside the frameBox.
@@ -1495,26 +1501,20 @@ class PythonGUI(CatScalableWidgetMixin):
 		kwargs.setdefault('frameStyle', QtWidgets.QFrame.StyledPanel | QtWidgets.QFrame.Plain)
 		frame: QtWidgets.QFrame = self.addItem(QtWidgets.QFrame, **kwargs)
 
-		qLayout = frame.layout()
-		if qLayout is None:
-			qLayout = DoubleColumnLayout.QLayoutType()
-			qLayout.setContentsMargins(self.qBoxMargins)
-			frame.setLayout(qLayout)
+		layoutCls = getDoubleColumnLayout(seamless)
+		qLayout = ensureWidgetLayoutType(frame, layoutCls.QLayoutType, contentsMargins=self.qBoxMargins)
 
 		return DoubleColumnLayout(self, qLayout, preventVStretch, preventHStretch)
 
-	def frameBox2(self, preventVStretch: bool = False, preventHStretch: bool = False, **kwargs):
+	def frameBox2(self, preventVStretch: bool = False, preventHStretch: bool = False, seamless: bool = False, **kwargs):
 		"""
 		Creates a framed box. has to be used in an ``with`` statement (``with gui.frameBox2():``).
 		Everything within the with statement will be inside the frameBox.
 		"""
 		groupBox: QtWidgets.QGroupBox = self.addItem(QtWidgets.QGroupBox, **kwargs)
 
-		qLayout = groupBox.layout()
-		if qLayout is None:
-			qLayout = DoubleColumnLayout.QLayoutType()
-			qLayout.setContentsMargins(self.qBoxMargins)
-			groupBox.setLayout(qLayout)
+		layoutCls = getDoubleColumnLayout(seamless)
+		qLayout = ensureWidgetLayoutType(groupBox, layoutCls.QLayoutType, contentsMargins=self.qBoxMargins)
 
 		return DoubleColumnLayout(self, qLayout, preventVStretch, preventHStretch)
 
@@ -1535,11 +1535,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		panel: CatPanel = self.addItem(CatPanel,  **kwargs)
 		qLayout = panel.layout()
 		if type(qLayout) is not layoutCls.QLayoutType:
-			if qLayout is not None:
-				deleteLayoutImmediately(qLayout)
-			qLayout = layoutCls.QLayoutType()
-			qLayout.setContentsMargins(*NO_MARGINS)
-			panel.setLayout(qLayout)
+			qLayout = ensureWidgetLayoutType(panel, layoutCls.QLayoutType, contentsMargins=NO_MARGINS)
 
 			panel.setOverlap(kwargs.get('overlap', NO_OVERLAP))
 			panel.setRoundedCorners(kwargs.get('roundedCorners', CORNERS.ALL))
