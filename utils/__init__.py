@@ -1,5 +1,5 @@
 
-from .typing_ import typeRepr, NoneType, is_namedtuple, override
+from .typing_ import typeRepr, NoneType, ClassInfo, is_namedtuple, replace_tuple, override, SupportsItems
 
 from .caches import Cache, GeneratingCache, GlobalCache, GlobalGeneratingCache, CachedGenerator
 

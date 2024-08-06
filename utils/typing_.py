@@ -1,16 +1,13 @@
-from typing import AbstractSet, NamedTuple, TypeVar, _type_repr, Protocol
-
-from ..utils.utils import Decorator
-
-_TT = TypeVar('_TT')
-_TK_co = TypeVar("_TK_co", covariant=True)
-_TV_co = TypeVar("_TV_co", covariant=True)
+import types
+import typing
+from typing import AbstractSet, NamedTuple, _type_repr, Protocol
 
 
 typeRepr = _type_repr
 
+NoneType = types.NoneType
 
-NoneType = type(None)
+type ClassInfo[T] = typing.Type[T] | types.UnionType | tuple[ClassInfo[T], ...]
 
 
 def is_namedtuple(x) -> bool:
@@ -42,22 +39,17 @@ def replace_tuple(obj: NamedTuple, /, **changes):
 	return type(obj)(**changes)
 
 
-@Decorator
-def override(func: _TT) -> _TT:
-	"""
-	documents that a method overrides a method in a supertype.
-	This is an identity operation.
-	"""
-	return func
+override = typing.override
 
 
-class SupportsItems(Protocol[_TK_co, _TV_co]):
-	def items(self) -> AbstractSet[tuple[_TK_co, _TV_co]]: ...
+class SupportsItems[TV, TK](Protocol):
+	def items(self) -> AbstractSet[tuple[TK, TV]]: ...
 
 
 __all__ = [
 	'typeRepr',
 	'NoneType',
+	'ClassInfo',
 	'is_namedtuple',
 	'replace_tuple',
 	'override',

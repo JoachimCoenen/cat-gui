@@ -10,7 +10,8 @@ import weakref
 from collections import defaultdict
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, ContextManager, Generic, IO, Iterable, Iterator, Optional, TYPE_CHECKING, Tuple, Type, TypeVar, Union, overload
+from typing import Any, Callable, ContextManager, Generic, IO, Iterable, Iterator, Optional, TYPE_CHECKING, Tuple, Type, \
+	TypeVar, Union, overload, ClassVar, Concatenate
 from warnings import warn
 
 try:
@@ -38,19 +39,19 @@ onCrash = __onCrash__
 if True:  # Anything, Nothing, Everything
 	class Anything:
 		""" Denotes Anyhing (=^= not None, at least one)."""
-		def __new__(cls, *args, **kwargs):
+		def __new__(cls, *args, **kwargs) -> Type[Anything] | Anything:
 			return Anything
 
 
 	class Nothing:
 		""" Denotes Nothing (non existent, not even None)."""
-		def __new__(cls, *args, **kwargs):
+		def __new__(cls, *args, **kwargs) -> Type[Nothing] | Nothing:
 			return Nothing
 
 
 	class Everything:
 		""" Denotes All (not just Some)."""
-		def __new__(cls, *args, **kwargs):
+		def __new__(cls, *args, **kwargs) -> Type[Everything] | Everything:
 			return Everything
 
 SINGLETON_FIELD = '__singleton__'
@@ -477,7 +478,7 @@ if True:
 			)
 		except OSError as e:
 			onError(e)
-			return EMPTY_MAYBE
+			return Maybe.EMPTY
 		return Maybe[IO[Any]](opened)
 
 
@@ -521,85 +522,121 @@ if True:
 		return INVALID_PATH_CHARS_PATTERN.sub(sub, name)
 
 
-class Maybe(Generic[_TT]):
-	""" a Maybe monad """
+# Maybe, selectNotNone(...), ...:
+if True:
+	class Maybe[TT]:
+		""" a Maybe monad """
 
-	def __init__(self, aValue: Optional[_TT]):
-		self._value: Optional[_TT] = aValue
+		def __init__(self, aValue: Optional[TT]):
+			self._value: Optional[TT] = aValue
 
-	def get(self) -> Optional[_TT]:
-		return self._value
+		def get(self) -> Optional[TT]:
+			return self._value
 
-	def orElse(self, default: _TD) -> Union[_TT, _TD]:
-		return self._value if self._value is not None else default
+		def orElse(self, default: _TD) -> TT | _TD:
+			return self._value if self._value is not None else default
 
-	_EMPTY_DICT = {}
+		_EMPTY_DICT = {}
 
-	def call(self, func: str, *args, kwargs: dict[str, Any] = _EMPTY_DICT, returns: Type[_TR] = Any) -> Maybe[_TR]:
-		if self._value is None:
-			return EMPTY_MAYBE
-		else:
-			return Maybe(getattr(self._value, func)(*args, **kwargs))
+		def call(self, func: str, *args, kwargs: dict[str, Any] = _EMPTY_DICT, returns: Type[_TR] = Any) -> Maybe[_TR]:
+			if self._value is None:
+				return self.EMPTY
+			else:
+				return Maybe(getattr(self._value, func)(*args, **kwargs))
 
-	def getattr(self, attr: str, returns: Type[_TR] = Any) -> Maybe[_TR]:
-		if self._value is None:
-			return EMPTY_MAYBE
-		else:
-			return Maybe(getattr(self._value, attr))
+		def getattr(self, attr: str, returns: Type[_TR] = Any) -> Maybe[_TR]:
+			if self._value is None:
+				return self.EMPTY
+			else:
+				return Maybe(getattr(self._value, attr))
+
+		@overload
+		def map[**P, R](self, func: Callable[Concatenate[TT, P], R | None], *args: P.args, **kwargs: P.kwargs) -> Maybe[R]: ...
+		@overload
+		def map[**P, R](self, func: Callable[Concatenate[TT, P], R], *args: P.args, **kwargs: P.kwargs) -> Maybe[R]: ...
+
+		def map[**P, R](self, func: Callable[Concatenate[TT, P], R | None], *args: P.args, **kwargs: P.kwargs) -> Maybe[R]:
+			"""
+			same as Maybe.apply(...)
+			:param func:
+			:param args:
+			:param kwargs:
+			:return:
+			"""
+			if self._value is None:
+				return self.EMPTY
+			else:
+				return Maybe(func(self._value, *args, **kwargs))
+
+		apply = map
+
+		def flatmap[**P, R](self, func: Callable[Concatenate[TT, P], Maybe[R]], *args: P.args, **kwargs: P.kwargs) -> Maybe[R]:
+			if self._value is None:
+				return self.EMPTY
+			else:
+				return func(self._value, *args, **kwargs)
+
+		def recursive[**P](self, func: Callable[Concatenate[TT, P], Optional[TT]], *args: P.args, **kwargs: P.kwargs) -> Maybe[TT]:
+			if self._value is None:
+				return self.EMPTY
+			else:
+				last: TT = self._value
+				while True:
+					new = func(last, *args, **kwargs)
+					if new is None:
+						return Maybe(last)
+					last = new
+
+		def __bool__(self) -> bool:
+			return self._value is not None
+
+		def __enter__(self) -> Maybe[TT]:
+			if self._value is not None:
+				return Maybe(self.get().__enter__())
+			else:
+				return self.EMPTY
+			#return  self..call('__enter__')
+
+		def __exit__(self, exc_type, exc_val, exc_tb):
+			if self._value is not None:
+				return self._value.__exit__(exc_type, exc_val, exc_tb)
+
+		EMPTY: ClassVar[Maybe[Any]]
+
+	Maybe.EMPTY = Maybe(None)
+
 
 	@overload
-	def map(self, func: Callable[[_TT, ...], Optional[_TR]], *args, **kwargs) -> Maybe[_TR]: ...
+	def _selectNotX[T, X](arg: T | X, arg2: T | X, *, x: X) -> T | X: ...
 	@overload
-	def map(self, func: Callable[[_TT, ...], _TR], *args, **kwargs) -> Maybe[_TR]: ...
+	def _selectNotX[T, X](arg: T | X, arg2: T, *, x: X) -> T: ...
 
-	def map(self, func: Callable[[_TT, ...], Optional[_TR]], *args, **kwargs) -> Maybe[_TR]:
-		"""
-		same as Maybe.apply(...)
-		:param func:
-		:param args:
-		:param kwargs:
-		:return:
-		"""
-		if self._value is None:
-			return EMPTY_MAYBE
-		else:
-			return Maybe(func(self._value, *args, **kwargs))
-
-	apply = map
-
-	def flatmap(self, func: Callable[[_TT, ...], Maybe[_TR]], *args, **kwargs) -> Maybe[_TR]:
-		if self._value is None:
-			return EMPTY_MAYBE
-		else:
-			return func(self._value, *args, **kwargs)
-
-	def recursive(self, func: Callable[[_TT, ...], Optional[_TT]], *args, **kwargs) -> Maybe[_TT]:
-		if self._value is None:
-			return EMPTY_MAYBE
-		else:
-			last: _TT = self._value
-			while True:
-				new = func(last, *args, **kwargs)
-				if new is None:
-					return Maybe(last)
-				last = new
-
-	def __bool__(self) -> bool:
-		return self._value is not None
-
-	def __enter__(self) -> Maybe[_TT]:
-		if self._value is not None:
-			return Maybe(self.get().__enter__())
-		else:
-			return EMPTY_MAYBE
-		#return  self..call('__enter__')
-
-	def __exit__(self, exc_type, exc_val, exc_tb):
-		if self._value is not None:
-			return self._value.__exit__(exc_type, exc_val, exc_tb)
+	def _selectNotX[T, X](arg: T | X, arg2: T | X, *, x: X) -> T | X:
+		return arg if arg is not x else arg2
 
 
-EMPTY_MAYBE: Maybe = Maybe(None)
+	@overload
+	def selectNotNothing[T](arg: T | Nothing, arg2: T | Nothing) -> T | Nothing: ...
+	@overload
+	def selectNotNothing[T](arg: T | Nothing, arg2: T) -> T: ...
+
+	def selectNotNothing[T](arg: T | Nothing, arg2: T | Nothing) -> T | Nothing:
+		return _selectNotX(arg, arg2, x=Nothing)
+
+
+	@overload
+	def selectNotNone[T](arg: T | None, arg2: T | None) -> T | None: ...
+	@overload
+	def selectNotNone[T](arg: T | None, arg2: T) -> T: ...
+
+	def selectNotNone[T](arg: T | None, arg2: T | None) -> T | None:
+		return _selectNotX(arg, arg2, x=None)
+
+
+	def selectNotNones[T](arg: T | None, *args: T | None) -> T | None:
+		if arg is not None:
+			return arg
+		return next(iter(filter(None, args)), None)
 
 # findall(...), flatmap(...), outerZip(...), mix(...), ...:
 if True:
@@ -808,6 +845,9 @@ __all__ = [
 	'sanitizeFileName',
 
 	'Maybe',
+	'selectNotNothing',
+	'selectNotNone',
+	'selectNotNones',
 
 	'findall',
 	'flatmap',
