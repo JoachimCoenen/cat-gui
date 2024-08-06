@@ -1,11 +1,10 @@
-from dataclasses import dataclass
 from typing import Any, Callable, Optional, TypeVar, Union, Sequence, Iterable
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFontDatabase
 
 from .enums import FileExtensionFilter, ValidatorResult
-from ..Serializable.utils import PropertyDecorator
+from ..Serializable.utils import PropertyDecorator, NoUI
 from ..utils.utils import sanitizeFileName, INVALID_PATH_CHARS
 
 
@@ -27,12 +26,6 @@ class FilePath(PropertyDecorator):
 
 class ReadOnlyLabel(PropertyDecorator):
 	"""docstring for ReadOnlyLabel"""
-	def __init__(self):
-		super().__init__()
-
-
-class NoUI(PropertyDecorator):
-	"""docstring for FolderPath"""
 	def __init__(self):
 		super().__init__()
 

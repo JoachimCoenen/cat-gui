@@ -311,6 +311,11 @@ class PropertyDecorator:
 		self.innerDecorator: Optional[PropertyDecorator] = None
 
 
+class NoUI(PropertyDecorator):
+	"""excludes field from the UI. see also serializableDataclasses.hasNoUI(...)"""
+	pass
+
+
 __all__ = [
 	'get_origin',
 	'get_args',
@@ -333,4 +338,5 @@ __all__ = [
 	'BASIC_TYPES',
 	'BASIC_TYPES_ENUM',
 	'PropertyDecorator',
+	'NoUI',
 ]

@@ -9,8 +9,8 @@ from typing import Any, Self, Union, Type, Optional, Callable, ForwardRef, Class
 from better_orderedmultidict import OrderedMultiDict
 
 from ..GUI import propertyDecorators as pd
-from .utils import MemoForDeserialization, MemoForSerialization, SerializationPath, get_args, SerializationError, getRef, \
-	typeHintMatchesType, valueMatchesType, BASIC_TYPES_ENUM, BASIC_TYPES, PropertyDecorator, _eval_type
+from .utils import MemoForDeserialization, MemoForSerialization, SerializationPath, get_args, SerializationError, \
+	getRef, typeHintMatchesType, valueMatchesType, BASIC_TYPES_ENUM, BASIC_TYPES, PropertyDecorator, _eval_type, NoUI
 from ..utils import SINGLETON_FIELD, NoneType, ClassInfo, format_full_exc, Nothing, first
 from ..utils.collections_ import FrozenDict
 from ..utils.formatters import formatVal
@@ -733,6 +733,19 @@ def setDecorator(field: Field, decorator: Optional[PropertyDecorator]) -> None:
 	return setCatMeta(field, 'decorator', decorator)
 
 
+def findDecorator[T: PropertyDecorator](field: Field, cls: ClassInfo[T]) -> T | None:
+	return first((d for d in getDecorators(field) if isinstance(d, cls)), None)
+
+
+def findAllDecorators[T: PropertyDecorator](field: Field, cls: ClassInfo[T]) -> list[T]:
+	return [d for d in getDecorators(field) if isinstance(d, cls)]
+
+
+def hasNoUI(field: Field) -> bool:
+	"""see also utils.NoUI"""
+	return any(isinstance(d, NoUI) for d in getDecorators(field))
+
+
 def getType(field: Field) -> Type[Any]:
 	typeHint = field.type
 	# handle forward references:
@@ -772,6 +785,9 @@ __all__ = [
 	'getDecorators',
 	'getDecorator',
 	'setDecorator',
+	'findDecorator',
+	'findAllDecorators',
+	'hasNoUI',
 	'getType',
 	'getKwargs',
 	'getKWArg',
