@@ -11,7 +11,7 @@ from better_orderedmultidict import OrderedMultiDict
 from ..GUI import propertyDecorators as pd
 from .utils import MemoForDeserialization, MemoForSerialization, SerializationPath, get_args, SerializationError, getRef, \
 	typeHintMatchesType, valueMatchesType, BASIC_TYPES_ENUM, BASIC_TYPES, PropertyDecorator, _eval_type
-from ..utils import SINGLETON_FIELD, NoneType, format_full_exc, Nothing
+from ..utils import SINGLETON_FIELD, NoneType, ClassInfo, format_full_exc, Nothing, first
 from ..utils.collections_ import FrozenDict
 from ..utils.formatters import formatVal
 from ..utils.logging_ import logError
@@ -517,11 +517,12 @@ def createCopySerializableDataclass(other: SerializableDataclass) -> Iterator[Se
 
 
 def createCopyList[T](other: list[T]) -> Iterator[list[T]]:
+	iters = tuple(createCopy(otherVal) for otherVal in other)
 	self = type(other)()
-	yield self
-	for otherVal in other:
-		selfValIt = createCopy(otherVal)
+	for selfValIt in iters:
 		self.append(next(selfValIt))
+	yield self
+	for selfValIt in iters:
 		next(selfValIt, None)
 
 
@@ -603,7 +604,7 @@ def catMeta(
 		deferLoading: Optional[bool] = __SENTINEL,
 		ifMissing: Optional[Callable[[Dataclass], Any]] = __SENTINEL,
 		formatVal: bool | Callable[[Any], bool] = __SENTINEL,
-		customPrintFunc: Optional[Callable[[SerializableDataclass], Any]] = __SENTINEL,
+		customPrintFunc: Optional[Callable[[SerializableDataclass, Any], Any]] = __SENTINEL,
 		encode: Optional[Callable[[Dataclass, Any], Any]] = __SENTINEL,
 		decode: Optional[Callable[[Optional[Dataclass], Any], Any]] = __SENTINEL,
 		# --------------------------------------------------------------------------------
