@@ -1084,41 +1084,53 @@ class PythonGUI(CatScalableWidgetMixin):
 				qLayout = qLayout or getattr(item, 'widget')().layout()
 			except (AttributeError, TypeError):
 				pass
-
-			if isinstance(qLayout, QtWidgets.QGridLayout):
-				infos.append(f'-------- -------- -------- ')
-				for c in range(qLayout.columnCount()):
-					ci = (qLayout.columnStretch(c), qLayout.columnMinimumWidth(c))
-					infos.append(f'    columns[{c}] = {ci}')
+			self._addLayoutToolTipInfo(qLayout, 'of Widget', line='-------- --------', infosIO=infos)
 		except AttributeError:
 			pass
 
-		try:
-			qLayout = getattr(self.currentLayout, '_qLayout')
-			if isinstance(qLayout, QtWidgets.QGridLayout):
-				infos.append(f'======== ======== ======== ')
-				for c in range(qLayout.columnCount()):
-					ci = (qLayout.columnStretch(c), qLayout.columnMinimumWidth(c))
-					infos.append(f'    columns[{c}] = {ci}')
-		except AttributeError:
-			pass
+		qLayout = getattr(self.currentLayout, '_qLayout', None)
+		self._addLayoutToolTipInfo(qLayout, 'containing Widget', line='======== ========', infosIO=infos)
 
-		try:
-			if self._widgetStack:
-				qLayout = getattr(self._widgetStack.peek(), '_qLayout')
-				if isinstance(qLayout, QtWidgets.QGridLayout):
-					infos.append(f'======== ======== ======== ')
-					infos.append(f'-------- -------- -------- ')
-					for c in range(qLayout.columnCount()):
-						ci = (qLayout.columnStretch(c), qLayout.columnMinimumWidth(c))
-						infos.append(f'    columns[{c}] = {ci}')
-		except AttributeError:
-			pass
+		oldQLayout = qLayout
+		if self._widgetStack and isinstance(qLayout := getattr(self._widgetStack.peekn(0), '_qLayout', None), QtWidgets.QLayout) and (qLayout.indexOf(oldQLayout) != -1):
+			self._addLayoutToolTipInfo(qLayout, 'containing Layout', line='======== ========', infosIO=infos)
+
+			oldQLayout = qLayout
+			if len(self._widgetStack) >= 2 and isinstance(qLayout := getattr(self._widgetStack.peekn(1), '_qLayout', None), QtWidgets.QLayout) and (qLayout.indexOf(oldQLayout) != -1):
+				self._addLayoutToolTipInfo(qLayout, 'containing Layout', line='======== ========', infosIO=infos)
 
 		toolTip: str = '\n'.join(infos)
 		kwargsCpy = kwargs.copy()
 		kwargsCpy['tip'] = toolTip
 		return kwargsCpy
+
+	def _addLayoutToolTipInfo(self, qLayout: QtWidgets.QLayout, nameSuffix: str, *, line: str, infosIO: list[str]) -> None:
+		if isinstance(qLayout, QtWidgets.QGridLayout):
+			layoutName = type(qLayout).__name__
+			infosIO.append(f'{layoutName} {nameSuffix}: {line} ')
+
+			infosIO.append('    = (stretch, minimum size)    ')
+			for c in range(qLayout.columnCount()):
+				ci = (qLayout.columnStretch(c), qLayout.columnMinimumWidth(c))
+				infosIO.append(f'    columns[{c}] = {ci}')
+			infosIO.append('')
+			for r in range(qLayout.rowCount()):
+				ri = (qLayout.rowStretch(r), qLayout.rowMinimumHeight(r))
+				infosIO.append(f'    rows[{r}] = {ri}')
+			infosIO.append('    --------    ')
+
+			try:
+				ol = getattr(qLayout, 'overlap')()
+				infosIO.append(f'    overlap = {ol}')
+			except AttributeError:
+				pass
+
+			try:
+				sp = getattr(qLayout, '_recalculateSizePolicy')()
+				sp = (SizePolicy(sp.hPolicy).name, SizePolicy(sp.vPolicy).name)
+				infosIO.append(f'    sizePolicy = {sp}')
+			except AttributeError:
+				pass
 
 	def addFontInfoToToolTip(self, item: QWidget, kwargs: dict[str, Any]) -> dict[str, Any]:
 		infos: list[str] = []
