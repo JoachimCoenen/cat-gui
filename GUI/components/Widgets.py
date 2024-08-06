@@ -2001,7 +2001,7 @@ class CatProgressBar(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatSty
 			p.drawText(textRect2, text)
 
 
-class Spoiler(CatFocusableMixin, ShortcutMixin, CatClickableMixin, QWidget, CatScalableWidgetMixin, CatStyledWidgetMixin):
+class Spoiler(CatFocusableMixin, ShortcutMixin, CatClickableMixin, QWidget, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
 
 	def __init__(self, parent=None, title=''):
 
@@ -2048,12 +2048,11 @@ class Spoiler(CatFocusableMixin, ShortcutMixin, CatClickableMixin, QWidget, CatS
 	def sizeHint(self) -> QSize:
 		iconCount = 1
 		gapsCount = 1 if self.title() else 0
-		ds = self.getDefaultSize(self.title(), iconCount, gapsCount, self.font())
-		return ds
+		return self.adjustSizeByOverlap(self.getDefaultSize(self.title(), iconCount, gapsCount))
 
 	@CrashReportWrapped
 	def minimumSizeHint(self) -> QSize:
-		return self.getDefaultMinimumSize(self.font())
+		return self.adjustSizeByOverlap(self.getDefaultMinimumSize())
 
 	@CrashReportWrapped
 	@PaintEventDebug
