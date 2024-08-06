@@ -294,9 +294,9 @@ class CatLabel(CatClickableMixin, QLabel, CatSizePolicyMixin, CatScalableWidgetM
 			height = int(20 * self._scale * self._iconScale)
 			width -= cm[0] + cm[2]
 			height -= cm[1] + cm[3]
-			size = min(width, height)
-			if self.pixmap() is None or self.pixmap().size() != QSize(size, size):
-				self._setPixmapInner(self._icon.pixmap(size, size))
+			actualSize = self._icon.actualSize(QSize(width, height))
+			if self.pixmap() is None or self.pixmap().size() != actualSize:
+				self._setPixmapInner(self._icon.pixmap(actualSize))
 		finally:
 			self._updatingPixmapFromIcon = False
 
