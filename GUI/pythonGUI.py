@@ -1620,7 +1620,18 @@ class PythonGUI(CatScalableWidgetMixin):
 		"""
 		return self.indentation().surroundWith(lambda: self.spoiler(label, isOpen=isOpen, style=getStyles().title, **kwargs))
 
-	def tabWidget(self, selectedTab: Optional[Any] = None, initialSelectedTab: Optional[Any] = None, drawBase: bool = True, overlap: Overlap = NO_OVERLAP, roundedCorners: RoundedCorners = CORNERS.NONE, cornerGUI: Callable[[], None] = None, **kwargs) -> TabControl:
+	def tabWidget(
+			self,
+			selectedTab: Optional[Any] = None,
+			initialSelectedTab: Optional[Any] = None,
+			drawBase: bool = True,
+			closeIcon: Optional[QIcon] = None,
+			position: TabPosition = TabPosition.North,
+			overlap: Overlap = NO_OVERLAP,
+			roundedCorners: RoundedCorners = CORNERS.NONE,
+			cornerGUI: Callable[[Any], None] = None,
+			**kwargs
+	) -> TabControl:
 		"""
 		Creates a vertical layout. has to be used in an ``with`` statement:
 		::
@@ -1637,49 +1648,69 @@ class PythonGUI(CatScalableWidgetMixin):
 		:param kwargs:
 		:return:
 		"""
+		addOLayout     = self._select(position, self.vLayout1C,       self.hLayout,         self.vLayout1C,       self.vLayout)
+		addILayout     = self._select(position, self.hLayout,         self.vLayout1C,       self.hLayout,         self.vLayout1C)
 
-		# frameColorName = '#b9b9b9'  # self.host.palette().mid().color().name()
 		stackWidgetKwArgs = dict(
 			lineWidth=0,
-			sizePolicy=QSizePolicy(SizePolicy.Preferred.value, SizePolicy.Preferred.value, QSizePolicy.TabWidget),
-			# frameStyle=QtWidgets.QFrame.NoFrame | QtWidgets.QFrame.Plain,
-			# style=Style({'#TabWidgetStack': Style({
-			# 	'border-top': f'0px solid {frameColorName}',
-			# 	'border-bottom': f'1px solid {frameColorName}',
-			# 	'border-right': f'1px solid {frameColorName}',
-			# 	'border-left': f'1px solid {frameColorName}',
-			# }) }),
-			objectName='TabWidgetStack',
+			sizePolicy=QSizePolicy(SizePolicy.Preferred.value, SizePolicy.Preferred.value, QSizePolicy.DefaultType),
 		)
 
-		vLayout = self.vLayout(seamless=True, overlap=overlap, roundedCorners=roundedCorners)
-		vLayout.__enter__()
-		try:
-			with self.hLayout(seamless=True):
-				tabBar: CatTabBar = self.addItem(
-					CatTabBar,
-					drawBase=drawBase,
-					expanding=kwargs.pop('expanding', False),
-					**kwargs
-				)
-				if cornerGUI is not None:
-					cornerGUI()
-			stackedWidget: SeamlessQStackedWidget = self.addItem(SeamlessQStackedWidget, **stackWidgetKwArgs)
+		def addTabBar() -> CatTabBar:
+			return self.addItem(
+				CatTabBar,
+				drawBase=drawBase,
+				expanding=kwargs.pop('expanding', False),
+				minimumHeight=0,
+				closeIcon=closeIcon,
+				position=position,
+				**kwargs
+			)
 
-			redrawnCount = getattr(tabBar, '__redrawnCount', 0)
-			setattr(tabBar, '__redrawnCount', redrawnCount + 1)
+		def addCornerGUI(currentIndex: int) -> None:
+			if cornerGUI is not None:
+				cornerGUI(currentIndex)
+
+		def addStackedWidget() -> tuple[SeamlessQStackedWidget, int]:
+			stackedWidget = self.addItem(SeamlessQStackedWidget, **stackWidgetKwArgs)
+			redrawnCount = getattr(stackedWidget, '__redrawnCount', 0)
+			setattr(stackedWidget, '__redrawnCount', redrawnCount + 1)
+			return stackedWidget, redrawnCount
+
+		oLayout = addOLayout(seamless=True, overlap=overlap, roundedCorners=roundedCorners)
+		oLayout.__enter__()
+		try:
+			if position in {TabPosition.North, TabPosition.West}:
+				with addILayout(seamless=True, isPrefix=True):
+					tabBar = addTabBar()
+					addCornerGUI(tabBar.currentIndex())
+				stackedWidget, redrawnCount = addStackedWidget()
+			else:
+				stackedWidget, redrawnCount = addStackedWidget()
+				with addILayout(seamless=True, isPrefix=False):
+					tabBar = addTabBar()
+					addCornerGUI(tabBar.currentIndex())
 
 			if redrawnCount == 0:
 				selectedTab = initialSelectedTab
-			return TabControl(
+			tabControl = TabControl(
 				self,
 				tabBar,
 				stackedWidget,
 				selectedTab
-			).surroundWith(None, vLayout.__exit__)
+			).surroundWith(None, oLayout.__exit__)
+			tabControl._tabBar = tabBar
+			return tabControl
 		except Exception as ex:
-			vLayout.__exit__(type(ex), ex, ex.__traceback__)
+			oLayout.__exit__(type(ex), ex, ex.__traceback__)
 			raise
+
+	@staticmethod
+	def _select(pos: TabPosition, north: _TT, east: _TT, south: _TT, west: _TT) -> _TT:
+		if pos in TAB_POSITION_NORTH_SOUTH:
+			return north if pos is TabPosition.North else south
+		else:
+			return east if pos is TabPosition.East else west
 
 	def tabBar(self, allTabs: list[TabOptions], *, selectedTab: Optional[int] = None, initialSelectedTab: Optional[Any] = None, closeIcon: Optional[QIcon] = None, **kwargs) -> int:
 		"""
