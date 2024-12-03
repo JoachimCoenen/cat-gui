@@ -66,7 +66,7 @@ class Calculator(PythonGUIDialog[PythonGUI]):  # must be a dialog for default bu
 			with gui.hLayout(seamless=True):
 				gui.addHSpacer(0, SizePolicy.Expanding)  # right align
 				gui.label(self.core.lastOperationStr)
-			gui.textField(self.core.display, fullSize=True, readOnly=True, alignment=Qt.AlignRight, maxLength=15, style=getStyles().title)
+			gui.textField(self.core.display, fullSize=True, readOnly=True, alignment=Qt.AlignRight, style=getStyles().title)
 
 	def buttonsGUI(self, gui: PythonGUI):
 		with gui.tableLayout(seamless=True) as tableLayout:
