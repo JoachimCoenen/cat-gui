@@ -15,13 +15,13 @@ from PyQt5.QtWidgets import QAbstractButton, QAbstractItemView, QAbstractSpinBox
 	QScrollArea, QShortcut, QSizePolicy, QStyle, QStyleOptionViewItem, QStyledItemDelegate, QTableView, QTextEdit, \
 	QTreeView, QWidget
 
-from .Layouts import SeamlessQGridLayout
+from .Layouts import finalizeBorders, SeamlessQGridLayout
 from ..utilities import connectSafe, safeEmit
 from ...GUI.components.catWidgetMixins import CAN_BUT_NO_BORDER_OVERLAP, CORNERS, CatClickableMixin, CatFocusableMixin, \
 	CatFramedAbstractScrollAreaMixin, CatFramedAreaMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, \
 	CatSizePolicyMixin, CatStyledWidgetMixin, ColorPalette, OverlapCharacteristics, PaintEventDebug, ShortcutMixin, \
 	UndoBlockableMixin, centerOfRect, getBorderPath, palettes, paintFramedWidgetBkg, paintIcon, paintText, \
-	drawLayoutBorder, paintSpoilerTriangle, getBorderPen
+	drawLayoutBorder, paintSpoilerTriangle, getBorderPen, RoundedCorners, Overlap, NO_OVERLAP
 from ...GUI.components.treeModel import DataTreeModel, TreeItemBase, TreeModel
 from ...utils.utils import CrashReportWrapped
 
@@ -653,12 +653,29 @@ class CatScrollArea(CatFramedAbstractScrollAreaMixin, QScrollArea, CatStyledWidg
 		self._sizeHint: QSize = QSize()
 
 		widget = CatPanel()
-		widget.setRoundedCorners(CORNERS.NONE)
-		widget.setOverlap((1, 1, 1, 1))
-		widget.setWindowPanel(False)
+		# widget.setRoundedCorners(CORNERS.NONE)
+		# widget.setOverlap((1, 1, 1, 1))
+		# widget.setWindowPanel(False)
 		widget.setLayout(SeamlessQGridLayout())
 		widget.layout().setContentsMargins(0, 0, 0, 0)
 		self.setWidget(widget)
+		self._panelWidget: CatPanel = widget
+
+	def getPanelWidget(self) -> CatPanel:
+		return self._panelWidget
+
+	def setRoundedCorners(self, roundedCorners: RoundedCorners) -> None:
+		super().setRoundedCorners(roundedCorners)
+		layout = self.getPanelWidget()  # .layout()
+		if isinstance(layout, CatFramedWidgetMixin):
+			layout.setRoundedCorners(roundedCorners)
+
+	def setOverlap(self, overlap: Overlap) -> None:
+		super().setOverlap(NO_OVERLAP)
+		layout = self.getPanelWidget()  # .layout()
+		if isinstance(layout, CatFramedWidgetMixin):
+			layout.setOverlap((1, 1, 1, 1))
+
 	def getBorderBrushes(self, rect: QRect) -> tuple[QBrush, QBrush, QBrush]:
 		bkgBrush = self.getBackgroundBrush(rect)
 		return self.getBorderBrush(), bkgBrush, bkgBrush
@@ -715,6 +732,12 @@ class CatScrollArea(CatFramedAbstractScrollAreaMixin, QScrollArea, CatStyledWidg
 					p.setBrush(self.getBackgroundBrush(self.rect()))
 					p.drawRect(self.rect())
 					paintGridLayoutBorders(p, widget.layout())
+
+	def finalizeBorders(self) -> None:
+		overlap = self.overlap()
+		corners = self.roundedCorners()
+		item = self.widget()
+		finalizeBorders(item, overlap, corners)
 
 
 class SpinBoxStrippingResult(NamedTuple):
@@ -789,14 +812,14 @@ class Int64SpinBox(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, QAbstra
 
 	def suffix(self) -> str:
 		"""
-		\property QSpinBox::suffix
-		\brief the suffix of the spin box
+		\\property QSpinBox::suffix
+		\\brief the suffix of the spin box
 
 		The suffix is appended to the end of the displayed value. Typical
 		use is to display a unit of measurement or a currency symbol. For
 		example:
 
-		\snippet code/src_gui_widgets_qspinbox.cpp 1
+		\\snippet code/src_gui_widgets_qspinbox.cpp 1
 
 		To turn off the suffix display, set this property to an empty
 		string. The default is no suffix. The suffix is not displayed for
@@ -804,7 +827,7 @@ class Int64SpinBox(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, QAbstra
 
 		If no suffix is set, suffix() returns an empty string.
 
-		\sa prefix(), setPrefix(), specialValueText(), setSpecialValueText()
+		\\sa prefix(), setPrefix(), specialValueText(), setSpecialValueText()
 		"""
 		return self.m_suffix
 
@@ -1270,7 +1293,7 @@ class Switch(CatFocusableMixin, ShortcutMixin, QAbstractButton, CatSizePolicyMix
 	@property
 	def xOffset(self) -> float:
 		baseOffset = self.thumbMargin + self.thumbWidth / 2
-		return (baseOffset * (1-self.offsetState) + self.offsetState * (self.toggleWidth() - baseOffset)) + self.toggleOffset()
+		return (baseOffset * (1 - self.offsetState) + self.offsetState * (self.toggleWidth() - baseOffset)) + self.toggleOffset()
 
 	@pyqtProperty(float)
 	def offsetState(self) -> float:

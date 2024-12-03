@@ -725,8 +725,8 @@ class SeamlessQGridLayout(QGridLayout, CatFramedWidgetMixin):
 	def overlapCharacteristics(self) -> OverlapCharacteristics:
 		try:
 			if self._overlapCharacteristics is None:
-				colCount = self.columnCount() # todo use actual columnCount and columnStart
-				rowCount = self.rowCount() # todo use actual rowCount and rowStart
+				colCount = self.columnCount()  # todo use actual columnCount and columnStart
+				rowCount = self.rowCount()  # todo use actual rowCount and rowStart
 				lastCol = colCount - 1
 				lastRow = rowCount - 1
 				contentMargins: tuple[int, int, int, int] = self.getContentsMargins()
@@ -993,10 +993,7 @@ def getOverlapCharacteristics(items: Iterable[QLayoutItem], directionSel: int) -
 			hasB = hasB and char[2]
 		else:
 			hasB = False
-
-	# why was this different from getOverlapCharacteristics2(...)???:
-	# return canO, reqO  # and anyIsFramed, reqO
-	return canO or not anyIsFramed, reqO, hasB and anyIsFramed
+	return canO and anyIsFramed, reqO, hasB and anyIsFramed
 
 
 def getOverlapCharacteristics2(items: Iterable[QLayout | QWidget], directionSel: int) -> OverlapCharTpl:

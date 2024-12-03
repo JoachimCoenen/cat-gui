@@ -13,7 +13,7 @@ from types import EllipsisType
 from typing import Any, Callable, ClassVar, ContextManager, Generic, Iterable, Iterator, Literal, Optional, Protocol, Sequence, Type, TypeVar, Union, cast, overload
 
 from PyQt5 import QtCore, QtGui, QtWidgets, sip
-from PyQt5.QtCore import QItemSelectionModel, QMargins, QObject, Qt, pyqtBoundSignal, pyqtSignal
+from PyQt5.QtCore import QItemSelectionModel, QMargins, QObject, Qt, pyqtBoundSignal, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QFont, QFontDatabase, QIcon
 from PyQt5.QtWidgets import QApplication, QDialog, QShortcut, QSizePolicy, QWidget
 
@@ -154,6 +154,7 @@ class SeamlessQStackedWidget(QtWidgets.QStackedWidget, CatFramedWidgetMixin, Cat
 	def __init__(self, *args):
 		super(SeamlessQStackedWidget, self).__init__(*args)
 		self._overlapCharacteristics: Optional[OverlapCharacteristics] = None
+		connectSafe(self.currentChanged, self._onCurrentChanged)
 
 	def addWidget(self, w: QWidget) -> int:
 		self._overlapCharacteristics = None
@@ -166,6 +167,11 @@ class SeamlessQStackedWidget(QtWidgets.QStackedWidget, CatFramedWidgetMixin, Cat
 	def removeWidget(self, w: QWidget) -> None:
 		self._overlapCharacteristics = None
 		return super(SeamlessQStackedWidget, self).removeWidget(w)
+
+	@pyqtSlot('int')
+	@CrashReportWrapped
+	def _onCurrentChanged(self, w: int) -> None:
+		self._overlapCharacteristics = None
 
 	@property
 	def overlapCharacteristics(self) -> OverlapCharacteristics:
@@ -262,7 +268,7 @@ class StackedControl(LayoutBase[SeamlessQStackedWidget]):
 		return layoutCls(self._gui, qLayout, preventVStretch, preventHStretch, deferBorderFinalization=True, forWidget=widget)
 
 	def _insertNewWidget(self, newIndex: int, id_: str, widget: Optional[QWidget]) -> QWidget:
-		widget = widget or QWidget()
+		widget = widget or CatPanel()
 		setattr(widget, '__id', id_)
 		self._qLayout.insertWidget(newIndex, widget)
 		return widget
@@ -328,7 +334,6 @@ class TabControl(StackedControl):
 		return super(TabControl, self).addItem(ItemType, initArgs, onInit, isPrefix)
 
 	def _insertNewWidget(self, newIndex: int, id_: str, widget: Optional[QWidget]) -> QWidget:
-		widget = widget or CatPanel()
 		widget = super(TabControl, self)._insertNewWidget(newIndex, id_, widget)
 		self._tabBar.insertTab(newIndex, _DEFAULT_TAB_OPTIONS)
 		return widget
@@ -1488,7 +1493,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		scrollBox = self.addItem(CatScrollArea, **kwargs)
 		if not scrollBox.widgetResizable():
 			scrollBox.setWidgetResizable(True)
-		widget = scrollBox.widget()
+		widget = scrollBox.getPanelWidget()
 
 		if contentsMargins is None:
 			contentsMargins = NO_MARGINS if seamless else self.qBoxMargins
