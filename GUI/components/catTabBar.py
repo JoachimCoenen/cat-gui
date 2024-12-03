@@ -697,7 +697,6 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 		self._toBeMovedTo: int = -1
 		self._allTabsRect: QRect = QRect()
 
-		self._tabShape: bool = False
 		self._tabsMovable: bool = False
 		self._tabsClosable: bool = False
 		self._expanding: bool = False
@@ -831,12 +830,6 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 		if self._expanding != expanding:
 			self._expanding = expanding
 			self._refresh()
-
-	def shape(self):
-		return self._tabShape
-
-	def setShape(self, shape):
-		self._tabShape = shape
 
 	def closeIcon(self) -> QIcon:
 		return self._closeIcon
@@ -1197,8 +1190,20 @@ class CatTabBar(CatFocusableMixin, ShortcutMixin, QWidget, CatSizePolicyMixin, C
 	def overlapCharacteristics(self) -> OverlapCharacteristics:
 		if self.expanding():
 			return CAN_AND_REQ_OVERLAP
-		# if self.drawBase(): # todo handle directionality of Tabbar
-		# 	return CAN_AND_REQ_OVERLAP
+		if self.drawBase():  # todo handle directionality of Tabbar
+			noBorder = CAN_AND_REQ_BUT_NO_BORDER_OVERLAP[0]
+			yesBorder = CAN_AND_REQ_OVERLAP[0]
+			match self.position():
+				case TabPosition.North:
+					return OverlapCharacteristics(yesBorder, noBorder, noBorder, yesBorder)
+				case TabPosition.South:
+					return OverlapCharacteristics(yesBorder, yesBorder, noBorder, noBorder)
+				case TabPosition.West:
+					return OverlapCharacteristics(noBorder, yesBorder, yesBorder, noBorder)
+				case TabPosition.East:
+					return OverlapCharacteristics(yesBorder, yesBorder, noBorder, noBorder)
+
+			return CAN_AND_REQ_OVERLAP
 		return CAN_AND_REQ_BUT_NO_BORDER_OVERLAP
 
 	def _toolTipEvent(self, ev: QHelpEvent) -> bool:
