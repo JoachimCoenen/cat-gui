@@ -136,16 +136,17 @@ class Indentation(WithBlock):
 
 
 class CenteredBlock(WithBlock):
-	def __init__(self, spacerFunc: Callable[[int, SizePolicy], None]):
+	def __init__(self, spacerFunc: Callable[[int, SizePolicy], None], preferredSpacerSize: int):
 		self._spacerFunc: Callable[[int, SizePolicy], None] = spacerFunc
+		self._preferredSpacerSize: int = preferredSpacerSize
 
 	def __enter__(self):
 		super().__enter__()
-		self._spacerFunc(0, SizePolicy.Expanding)
+		self._spacerFunc(self._preferredSpacerSize, SizePolicy.Expanding)
 		return self
 
 	def __exit__(self, exc_type, exc_value, traceback):
-		self._spacerFunc(0, SizePolicy.Expanding)
+		self._spacerFunc(self._preferredSpacerSize, SizePolicy.Expanding)
 		return super().__exit__(exc_type, exc_value, traceback)
 
 
@@ -1372,7 +1373,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		qLayout = self.addItem(layoutCls.QLayoutType, **kwargs)
 		return layoutCls(self, qLayout, preventVStretch, preventHStretch, prefixMode)
 
-	def hCentered(self) -> WithBlock:
+	def hCentered(self, preferredSpacerSize: int = 0) -> WithBlock:
 		"""
 		Centers contained widgets horizontally.
 		::
@@ -1383,9 +1384,9 @@ class PythonGUI(CatScalableWidgetMixin):
 			with gui.hCentered().surroundWithBlock(gui.hLayout()):
 				gui.helpBox("To come in a future version.")
 		"""
-		return CenteredBlock(self.addHSpacer)
+		return CenteredBlock(self.addHSpacer, preferredSpacerSize)
 
-	def vCentered(self) -> WithBlock:
+	def vCentered(self, preferredSpacerSize: int = 0) -> WithBlock:
 		"""
 		Centers contained widgets vertically.
 		::
@@ -1401,7 +1402,7 @@ class PythonGUI(CatScalableWidgetMixin):
 					gui.vSeparator()
 					gui.label("Bottom half of the page")
 		"""
-		return CenteredBlock(self.addVSpacer)
+		return CenteredBlock(self.addVSpacer, preferredSpacerSize)
 
 	def hCentered2(
 			self,
@@ -1413,6 +1414,7 @@ class PythonGUI(CatScalableWidgetMixin):
 			verticalSpacing: int = -1,
 			horizontalSpacing: int = -1,
 			seamless: bool = False,
+			preferredSpacerSize: int = 0,
 			**kwargs
 	) -> SingleRowLayout | SeamlessSingleRowLayout:
 		"""
@@ -1421,7 +1423,7 @@ class PythonGUI(CatScalableWidgetMixin):
 			with gui.hCentered2():
 				gui.helpBox("To come in a future version.")
 		"""
-		return self.hCentered().surroundWithBlock(self.hLayout(
+		return self.hCentered(preferredSpacerSize=preferredSpacerSize).surroundWithBlock(self.hLayout(
 			label,
 			fullSize=fullSize,
 			preventVStretch=preventVStretch,
@@ -1441,6 +1443,7 @@ class PythonGUI(CatScalableWidgetMixin):
 			verticalSpacing: int = -1,
 			horizontalSpacing: int = -1,
 			seamless: bool = False,
+			preferredSpacerSize: int = 0,
 			**kwargs
 	) -> DoubleColumnLayout | SeamlessDoubleColumnLayout:
 		"""
@@ -1451,7 +1454,7 @@ class PythonGUI(CatScalableWidgetMixin):
 				gui.vSeparator()
 				gui.label("Bottom half of the page")
 		"""
-		return self.vCentered().surroundWithBlock(self.vLayout(
+		return self.vCentered(preferredSpacerSize=preferredSpacerSize).surroundWithBlock(self.vLayout(
 			label,
 			fullSize=fullSize,
 			preventVStretch=preventVStretch,
