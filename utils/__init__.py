@@ -1,7 +1,7 @@
 
 from .typing_ import typeRepr, NoneType, ClassInfo, is_namedtuple, replace_tuple, override, SupportsItems
 
-from .caches import Cache, GeneratingCache, GlobalCache, GlobalGeneratingCache, CachedGenerator
+from .caches import Cache, GeneratingCache, GlobalCache, GlobalGeneratingCache, CachedGenerator, GlobalCachedGenerator
 
 from .utils import Anything, Nothing, Everything
 from .utils import NotImplementedField, SINGLETON_FIELD, Singleton, DocEnum
