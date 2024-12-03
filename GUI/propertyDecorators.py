@@ -144,19 +144,29 @@ class Validator(PropertyDecorator):
 		self.kwargs = kwargs
 
 
-def folderPathValidator(path: str) -> Optional[ValidatorResult]:
+def folderPathValidator(path: str, *, style: str = 'error') -> Optional[ValidatorResult]:
 	import os
 	if not os.path.lexists(path):
-		return ValidatorResult('Folder not found', 'error')
+		return ValidatorResult('Folder not found', style)
 
 	if not os.path.isdir(path):
-		return ValidatorResult('Not a directory', 'error')
+		return ValidatorResult('Not a directory', style)
 	return None
 
 
-def fileNameValidator(name: str) -> Optional[ValidatorResult]:
+def filePathValidator(path: str, *, style: str = 'error') -> Optional[ValidatorResult]:
+	import os
+	if not os.path.lexists(path):
+		return ValidatorResult('File not found', style)
+
+	if not os.path.isfile(path):
+		return ValidatorResult('Not a file', style)
+	return None
+
+
+def fileNameValidator(name: str, *, style: str = 'error') -> Optional[ValidatorResult]:
 	if name and sanitizeFileName(name) != name:
-		return ValidatorResult(f"Illegal characters: {INVALID_PATH_CHARS}", 'error')
+		return ValidatorResult(f"Illegal characters: {INVALID_PATH_CHARS}", style)
 	return None
 
 
@@ -191,6 +201,9 @@ __all__ = [
 	'DescriptionAbove',
 	'ValidatorResult',
 	'Validator',
+	'folderPathValidator',
+	'filePathValidator',
+	'fileNameValidator',
 	'List',
 	'Dict',
 ]
