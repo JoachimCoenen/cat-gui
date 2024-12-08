@@ -2516,9 +2516,17 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 		self._roundedCorners = CORNERS.NONE
 		self._colorPalette = palettes.inputColorPalette
 		self.setLineWidth(1)
+
 		treeModel = self._makeTreeModel()
 		treeModel._loadDeferred: bool = True
 		self.setModel(treeModel)
+
+		# we need to set the selesctionModel manually again to avoid this Exception on Linux and Mac: "RuntimeError: no access to protected functions or signals for objects not created from Python"
+		selectionModel = QItemSelectionModel(treeModel, self)
+		oldSelectionModel = self.selectionModel()
+		self.setSelectionModel(selectionModel)
+		oldSelectionModel.deleteLater()
+
 		self.setMinimumWidth(150)
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.setIndentation(self.indentation() * 2 // 3)

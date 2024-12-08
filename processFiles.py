@@ -84,7 +84,7 @@ def _innerMakeSearchPathStr(srcFolder: str, searchStr: str) -> tuple[str, str]:
 	# folderStr = reduce(lambda acc, v: v + '(\\?:/' + acc + ')\\?' if v and acc else acc or v, reversed(re.split(r'[/]', fileStr)), '')
 
 	# return re.sub(_REPL_PATTERN_STR, _replFuncStr, folderStr), re.sub(_REPL_PATTERN_STR, _replFuncStr, fileStr.strip('/\\'))
-	return _searchPathFinalizerStr(folderStr), _searchPathFinalizerStr(fileStr.strip('/\\'))
+	return '/?' + _searchPathFinalizerStr(folderStr), '/?' + _searchPathFinalizerStr(fileStr.strip('/\\'))
 
 
 _REPL_DICT_BYTES = {
@@ -122,7 +122,7 @@ def _innerMakeSearchPathBytes(srcFolder: bytes, searchStr: bytes) -> tuple[bytes
 	# folderStr = reduce(lambda acc, v: v + b'(\\?:/' + acc + b')\\?' if v and acc else acc or v, reversed(re.split(rb'[/]', fileStr)), '')
 
 	# return re.sub(_REPL_PATTERN_BYTES, _replFuncBytes, folderStr), re.sub(_REPL_PATTERN_BYTES, _replFuncBytes, fileStr.strip(b'/\\'))
-	return _searchPathFinalizerBytes(folderStr), _searchPathFinalizerBytes(fileStr.strip(b'/\\'))
+	return b'/?' + _searchPathFinalizerBytes(folderStr), b'/?' + _searchPathFinalizerBytes(fileStr.strip(b'/\\'))
 
 
 _BACKTRACK_PATTERN = re.compile(r"[/\\]\.\.")
@@ -145,8 +145,8 @@ class _FindRecursiveData:
 
 
 def processRecursively(srcFolder: str, folderFilter: str, handleFile: Callable[[str], None], *, filenameRegex: Optional[str] = None) -> FindRecursiveResult:
-	""" 
-		folderFilter syntax: 
+	"""
+		folderFilter syntax:
 			- ?   any single char, except \\ or /
 			- *   any multiple chars, except \\ or /
 			- **  any multiple chars, including \\ or /
@@ -166,7 +166,7 @@ def processRecursively(srcFolder: str, folderFilter: str, handleFile: Callable[[
 # def _findRecursive(srcFolder: str, handleFile: Callable[[str], None], folderFilter: re.Pattern, finalFolderFilter: re.Pattern, result: FindRecursiveResult, maxBacktrackCount=0, indentStr = ""):
 def _findRecursive(srcFolder: str, data: _FindRecursiveData):
 	for root, dirs, files in os.walk((os.path.normpath(srcFolder)), topdown=True):
-		root = root.strip('\\/')
+		root = root.rstrip('\\/')
 		if data.finalFolderFilter.fullmatch(root) is not None:
 			filenamePattern = data.filenamePattern
 			for name in files:
