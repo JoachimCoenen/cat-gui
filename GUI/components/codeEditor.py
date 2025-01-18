@@ -20,6 +20,15 @@ from ...utils.collections_ import AddToDictDecorator, Stack
 from ...utils.profiling import logWarning
 from ...utils.utils import CrashReportWrapped
 
+try:
+	from recordclass import as_dataclass
+except ImportError:
+	HAS_RECORDCLASS = False
+	as_dataclass = None
+else:
+	HAS_RECORDCLASS = True
+
+
 if TYPE_CHECKING:
 	from ...GUI import PythonGUI
 
@@ -188,19 +197,34 @@ def choicesFromAutoCompletionTree(tree: AutoCompletionTree, text: str, addSepara
 	return result
 
 
-# IndexSpan = tuple[int, int]
-class IndexSpan(NamedTuple):
-	start: int
-	end: int
+if HAS_RECORDCLASS:
+	@as_dataclass(sequence=True, readonly=True, fast_new=True)
+	class IndexSpan:
+		start: int
+		end: int
+else:
+	class IndexSpan(NamedTuple):
+		start: int
+		end: int
 
 
-class CEPosition(NamedTuple):
-	line: int
-	column: int
+if HAS_RECORDCLASS:
+	@as_dataclass(sequence=True, readonly=True, fast_new=True)
+	class CEPosition:
+		line: int
+		column: int
+		if TYPE_CHECKING:
+			def __iter__(self):
+				yield self.line
+				yield self.column
+else:
+	class CEPosition(NamedTuple):
+		line: int
+		column: int
 
-	def __iter__(self):
-		yield self.line
-		yield self.column
+		def __iter__(self):
+			yield self.line
+			yield self.column
 
 
 class IndexedPosition(Protocol):
@@ -258,90 +282,164 @@ QSciIndicatorStyle = QsciScintilla.IndicatorStyle
 # 	CentreGradientIndicator = QsciScintilla.INDIC_GRADIENTCENTRE, "A vertical gradient with the indicator's foreground colour in the middle and fading to fully transparent at the top and bottom."
 
 
-@dataclass
+@dataclass(kw_only=True)
 class IndicatorStyle:
 	style:           QSciIndicatorStyle
-	hoverStyle:      QSciIndicatorStyle
+	hoverStyle:      QSciIndicatorStyle = None
 	drawUnder:       bool
 	foreground:      QColor
-	hoverForeground: QColor
-	outline:         Optional[QColor]
+	hoverForeground: QColor = None
+	outline:         Optional[QColor] = None
+
+	def __post_init__(self):
+		if self.hoverStyle is None:
+			self.hoverStyle = self.style
+		if self.hoverForeground is None:
+			self.hoverForeground = self.foreground
 
 
-class Indicator(enum.IntEnum):
-	Error = 0
-	Warning = 1
-	Info = 2
-	Fallback = 3
-	SearchResult = 4
-	MatchedBrace = 5
-	Link = 6
+class OriginalSciIndicatorRanges(enum.IntEnum):
+	"""
+	The Original Scintilla indicator ranges.
+	CodeEditor divides the range differently. See enum CatIndicatorRanges.
+	"""
+	SCI_LEXER_MIN = 0
+	SCI_LEXER_MAX = QsciScintilla.INDIC_CONTAINER - 1  # 7
+
+	SCI_CONTAINER_MIN = QsciScintilla.INDIC_CONTAINER  # 8
+	SCI_CONTAINER_MAX = QsciScintilla.INDIC_IME - 1  # 31
+
+	SCI_IME_MIN = QsciScintilla.INDIC_IME  # 32
+	SCI_IME_MAX = QsciScintilla.INDIC_IME_MAX  # 35
+
+	SCI_HISTORY_MIN = QsciScintilla.INDIC_IME_MAX + 1  # 36
+	SCI_HISTORY_MAX = QsciScintilla.INDIC_MAX  # 43
+
+	SCI_MAX = QsciScintilla.INDIC_MAX  # 43
+
+
+class CatIndicatorRanges(enum.IntEnum):
+	"""
+	Scintilla grants only 8 indicators (0..7) to lexers, but 24 indicators (8..31) to the container.
+	CodeEditor divides up the ranges differently:
+		- lexers:      0..15
+		- containers: 16..31 (25..31) are already taken. See enum CatIndicatorIds.
+		- IME:        32..35 (the same as Scintilla)
+		- history:    36..43 (the same as Scintilla)
+	"""
+	CAT_LEXER_MIN = 0
+	CAT_LEXER_MAX = 15
+
+	CAT_CONTAINER_MIN = 16
+	CAT_CONTAINER_MAX = OriginalSciIndicatorRanges.SCI_CONTAINER_MAX.value  # 31
+
+	SCI_IME_MIN = QsciScintilla.INDIC_IME  # 32
+	SCI_IME_MAX = QsciScintilla.INDIC_IME_MAX  # 35
+
+	SCI_HISTORY_MIN = OriginalSciIndicatorRanges.SCI_HISTORY_MIN.value  # 36
+	SCI_HISTORY_MAX = OriginalSciIndicatorRanges.SCI_HISTORY_MAX.value  # 43
+
+	SCI_MAX = OriginalSciIndicatorRanges.SCI_MAX.value  # 43
+
+
+class CatIndicatorIds(enum.IntEnum):
+	CAT_ERROR =         CatIndicatorRanges.CAT_CONTAINER_MAX - 6  # 25
+	CAT_WARNING =       CatIndicatorRanges.CAT_CONTAINER_MAX - 5  # 26
+	CAT_INFO =          CatIndicatorRanges.CAT_CONTAINER_MAX - 4  # 27
+	CAT_FALLBACK =      CatIndicatorRanges.CAT_CONTAINER_MAX - 3  # 28
+	CAT_SEARCH_RESULT = CatIndicatorRanges.CAT_CONTAINER_MAX - 2  # 29
+	CAT_MATCHED_BRACE = CatIndicatorRanges.CAT_CONTAINER_MAX - 1  # 30
+	CAT_LINK =          CatIndicatorRanges.CAT_CONTAINER_MAX - 0  # 31
+
+	SCI_HISTORY_REVERTED_TO_ORIGIN_INSERTION = 36
+	"""
+	Text was deleted and saved but then reverted to its original state. 
+	This text has not been saved to disk.
+	"""
+	SCI_HISTORY_REVERTED_TO_ORIGIN_DELETION = 37
+	"""
+	Text was inserted and saved but then reverted to its original state. 
+	There is text on disk that is missing.
+	"""
+	SCI_HISTORY_SAVED_INSERTION = 38
+	"""
+	Text was inserted and saved. 
+	This text is the same as on disk.
+	"""
+	SCI_HISTORY_SAVED_DELETION = 39
+	"""
+	Text was deleted and saved. 
+	This range is the same as on disk.
+	"""
+	SCI_HISTORY_MODIFIED_INSERTION = 40
+	"""
+	Text was inserted but not yet saved. 
+	This text has not been saved to disk.
+	"""
+	SCI_HISTORY_MODIFIED_DELETION = 41
+	"""
+	Text was deleted but not yet saved. 
+	There is text on disk that is missing.
+	"""
+	SCI_HISTORY_REVERTED_TO_MODIFIED_INSERTION = 42
+	"""
+	Text was deleted and saved but then reverted but not to its original state. 
+	This text has not been saved to disk.
+	"""
+	SCI_HISTORY_REVERTED_TO_MODIFIED_DELETION = 43
+	"""
+	Text was inserted and saved but then reverted but not to its original state. 
+	There is text on disk that is missing.
+	"""
 
 
 DEFAULT_INDICATOR_STYLES = {
-	Indicator.Error: IndicatorStyle(
+	CatIndicatorIds.CAT_ERROR: IndicatorStyle(
 		style=QSciIndicatorStyle.SquiggleIndicator,
-		hoverStyle=QSciIndicatorStyle.SquiggleIndicator,
 		drawUnder=True,
-		foreground=     QColor(0xFF0000),
-		hoverForeground=QColor(0xFF0000),
-		outline=None
+		foreground=QColor(0xFF0000),
 	),
-	Indicator.Warning: IndicatorStyle(
+	CatIndicatorIds.CAT_WARNING: IndicatorStyle(
 		style=QSciIndicatorStyle.SquiggleIndicator,
-		hoverStyle=QSciIndicatorStyle.SquiggleIndicator,
 		drawUnder=True,
-		foreground=     QColor(0x9F8800),
-		hoverForeground=QColor(0x9F8800),
-		outline=None
+		foreground=QColor(0x9F8800),
 	),
-	Indicator.Info: IndicatorStyle(
+	CatIndicatorIds.CAT_INFO: IndicatorStyle(
 		style=QSciIndicatorStyle.SquiggleIndicator,
-		hoverStyle=QSciIndicatorStyle.SquiggleIndicator,
 		drawUnder=True,
-		foreground=     QColor(0x0072FF),
-		hoverForeground=QColor(0x0072FF),
-		outline=None
+		foreground=QColor(0x0072FF),
 	),
-	Indicator.Fallback: IndicatorStyle(
+	CatIndicatorIds.CAT_FALLBACK: IndicatorStyle(
 		style=QSciIndicatorStyle.SquiggleIndicator,
-		hoverStyle=QSciIndicatorStyle.SquiggleIndicator,
 		drawUnder=True,
-		foreground=     QColor(0x3D8C52),
-		hoverForeground=QColor(0x3D8C52),
-		outline=None
+		foreground=QColor(0x3D8C52),
 	),
-	Indicator.SearchResult: IndicatorStyle(
+	CatIndicatorIds.CAT_SEARCH_RESULT: IndicatorStyle(
 		style=QSciIndicatorStyle.StraightBoxIndicator,
-		hoverStyle=QSciIndicatorStyle.StraightBoxIndicator,
 		drawUnder=True,
-		foreground=     QColor(0x2F, 0x8C, 0x48, 0x48),
-		hoverForeground=QColor(0x2F, 0x8C, 0x48, 0x48),
-		outline=        QColor(0x3D, 0x8C, 0x52, 0x79)
+		foreground=QColor(0x2F, 0x8C, 0x48, 0x48),
+		outline=   QColor(0x3D, 0x8C, 0x52, 0x79)
 	),
-	Indicator.MatchedBrace: IndicatorStyle(
+	CatIndicatorIds.CAT_MATCHED_BRACE: IndicatorStyle(
 		style=QSciIndicatorStyle.StraightBoxIndicator,
-		hoverStyle=QSciIndicatorStyle.StraightBoxIndicator,
 		drawUnder=True,
-		foreground=     QColor(0x00, 0x6F, 0xCC, 0x28),
-		hoverForeground=QColor(0x00, 0x6F, 0xCC, 0x28),
-		outline=        QColor(0x1D, 0x2D, 0x9C, 0x79)
+		foreground=QColor(0x00, 0x6F, 0xCC, 0x28),
+		outline=   QColor(0x1D, 0x2D, 0x9C, 0x79)
 	),
-	Indicator.Link: IndicatorStyle(
+	CatIndicatorIds.CAT_LINK: IndicatorStyle(
 		style=QSciIndicatorStyle.HiddenIndicator,
 		hoverStyle=QSciIndicatorStyle.PlainIndicator,
 		drawUnder=True,
 		foreground=     QColor(0x0072FF),
 		hoverForeground=QColor(0x0000FF),
-		outline=None
 	)
 }
 
 
-indicatorStyles: dict[Indicator, IndicatorStyle] = copy.deepcopy(DEFAULT_INDICATOR_STYLES)
+indicatorStyles: dict[int, IndicatorStyle] = copy.deepcopy(DEFAULT_INDICATOR_STYLES)
 
 
-def setIndicatorStyles(newIndicatorStyles: dict[Indicator, IndicatorStyle]) -> None:
+def setIndicatorStyles(newIndicatorStyles: dict[int, IndicatorStyle]) -> None:
 	global indicatorStyles
 	indicatorStyles = copy.copy(DEFAULT_INDICATOR_STYLES)
 	if newIndicatorStyles is not None:
@@ -351,11 +449,11 @@ def setIndicatorStyles(newIndicatorStyles: dict[Indicator, IndicatorStyle]) -> N
 		pass
 
 
-errorIndicatorStyles: dict[str, Indicator] = {
-	'error': Indicator.Error,
-	'warning': Indicator.Warning,
-	'info': Indicator.Info,
-	'default': Indicator.Fallback,
+errorIndicatorStyles: dict[str, CatIndicatorIds] = {
+	'error': CatIndicatorIds.CAT_ERROR,
+	'warning': CatIndicatorIds.CAT_WARNING,
+	'info': CatIndicatorIds.CAT_INFO,
+	'default': CatIndicatorIds.CAT_FALLBACK,
 }
 
 
@@ -430,7 +528,7 @@ class MyQsciAPIs(QsciAPIs):
 	def getCallTips(self, position: CEPosition) -> list[CallTipInfo]:
 		return []
 
-	def getClickableRanges(self) -> list[tuple[CEPosition, CEPosition]]:
+	def getClickableRanges(self) -> list[IndexSpan]:
 		return []
 
 	def indicatorClicked(self, position: CEPosition, state: Qt.KeyboardModifiers) -> None:
@@ -486,7 +584,7 @@ class CodeEditor(
 		self.setUtf8(True)  # Set encoding to UTF-8
 		self.setTabWidth(4)
 		self._language = 'PlainText'
-		self._searchResults: list[tuple[int, int, int, int]] = []
+		self._searchResults: list[IndexSpan] = []
 
 		brightness = 0xE0
 		self.setCaretLineBackgroundColor(QColor(brightness, brightness, brightness))
@@ -511,7 +609,7 @@ class CodeEditor(
 		self.setCallTipsPosition(self.CallTipsAboveText)
 
 		self.initIndicatorStyles(indicatorStyles)
-		self.setMatchedBraceIndicator(Indicator.MatchedBrace.value)
+		self.setMatchedBraceIndicator(CatIndicatorIds.CAT_MATCHED_BRACE.value)
 
 		#QShortcut(Qt.ControlModifier | Qt.Key_Space, self, lambda: self.showUserList(1, self.buildUserList()) if not sip.isdeleted(self) else None, lambda: None, Qt.WidgetShortcut)
 		QShortcut(Qt.ControlModifier | Qt.Key_Space, self, CrashReportWrapped(lambda: self.myStartAutoCompletionOrCallTips() if not sip.isdeleted(self) else None), lambda: None, Qt.WidgetShortcut)
@@ -584,15 +682,15 @@ class CodeEditor(
 			return userList
 		return []
 
-	def initIndicatorStyles(self, styles: dict[Indicator, IndicatorStyle]):
+	def initIndicatorStyles(self, styles: dict[int, IndicatorStyle]):
 		for indicator, style in styles.items():
-			self.indicatorDefine(style.style, indicator.value)
-			self.setIndicatorHoverStyle(style.hoverStyle, indicator.value)
-			self.setIndicatorDrawUnder(style.drawUnder, indicator.value)
-			self.setIndicatorForegroundColor(style.foreground, indicator.value)
-			self.setIndicatorHoverForegroundColor(style.hoverForeground, indicator.value)
+			self.indicatorDefine(style.style, indicator)
+			self.setIndicatorHoverStyle(style.hoverStyle, indicator)
+			self.setIndicatorDrawUnder(style.drawUnder, indicator)
+			self.setIndicatorForegroundColor(style.foreground, indicator)
+			self.setIndicatorHoverForegroundColor(style.hoverForeground, indicator)
 			if style.outline is not None:
-				self.setIndicatorOutlineColor(style.outline, indicator.value)
+				self.setIndicatorOutlineColor(style.outline, indicator)
 
 	@CrashReportWrapped
 	def _onLinesChanged(self) -> None:
@@ -676,12 +774,9 @@ class CodeEditor(
 	@CrashReportWrapped
 	def _onTextChanged(self) -> None:
 		if (api := self._catQSciAPIs) is not None:
-			lines = self.lines()
-			self.clearIndicatorRange(0, 0, lines - 1, self.lineLength(lines - 1) - 1, Indicator.Link.value)
+			# TODO defer clickable ranges after parsing.
 			clickableRanges = api.getClickableRanges()
-			for range in clickableRanges:
-				range = (*range[0], *range[1])
-				self.fillIndicatorRange(*range, Indicator.Link.value)
+			self.updateIndicatorRanges({CatIndicatorIds.CAT_LINK: clickableRanges})
 
 	@CrashReportWrapped
 	def _onIndicatorClicked(self, line: int, index: int, state: Qt.KeyboardModifiers) -> None:
@@ -704,37 +799,64 @@ class CodeEditor(
 			self.setLexer(lexer)
 		self._language = language
 
+	def updateIndicatorRanges(self, indicatorRanges: dict[int, list[IndexSpan]]) -> None:
+		"""
+		updates all ranges for the given indicators.
+		"""
+		length = self.length()
+
+		for indicator, ranges in indicatorRanges.items():
+			self.clearIndicatorRangeIndex(0, self.length(), indicator)
+
+			for iRange in ranges:
+				beginIdx = iRange.start
+				endIdx = iRange.end
+
+				if endIdx <= 0:
+					endIdx = 1  # endIdx is not before the start of text
+				elif beginIdx >= length:
+					beginIdx = max(0, length - 1)  # beginIdx is not past the end of text
+				elif beginIdx == endIdx:
+					endIdx += 1  # no zero-width indicators
+
+				self.fillIndicatorRangeIndex(beginIdx, endIdx, indicator)
+
+	def clearIndicatorRangeIndex(self, begin: int, end: int, indicator: int) -> None:
+		beginCEPos = self.cePositionFromIndex(begin)
+		endCEPos = self.cePositionFromIndex(end)
+		self.clearIndicatorRange(*beginCEPos, *endCEPos, indicator)
+
+	def fillIndicatorRangeIndex(self, begin: int, end: int, indicator: int) -> None:
+		beginCEPos = self.cePositionFromIndex(begin)
+		endCEPos = self.cePositionFromIndex(end)
+		self.fillIndicatorRange(*beginCEPos, *endCEPos, indicator)
+
 	def highlightSearchResults(self, searchResults: list[IndexSpan]):
-		lines = self.lines()
-		self.clearIndicatorRange(0, 0, lines - 1, self.lineLength(lines - 1) - 1, Indicator.SearchResult.value)
+		searchResultsCapped = searchResults[:1000]
+		self.updateIndicatorRanges({CatIndicatorIds.CAT_SEARCH_RESULT: searchResultsCapped})
+		self._searchResults = searchResultsCapped
 
-		self._searchResults = []
-		iterator: Iterator[tuple[int, IndexSpan]] = enumerate(searchResults)
-		for i, result in iterator:
-			resultPos = (
-				*self.lineIndexFromPosition(result[0]),
-				*self.lineIndexFromPosition(result[1]),
-			)
-			self.fillIndicatorRange(*resultPos, Indicator.SearchResult.value)
-			self._searchResults.append(resultPos)
-			if i > 1000:
-				break
-
-	def nextSearchResult(self):
+	def nextSearchResult(self) -> None:
 		if not self._searchResults:
 			return
-		line, index = self.getCursorPosition()
+		line, column = self.getCursorPosition()
+		index = self.positionFromLineIndex(line, column)
 
-		nextSr = next((sr for sr in self._searchResults if sr[0] > line or (sr[0]==line and sr[1] >= index)), self._searchResults[0])
-		self.setSelection(*nextSr)
+		nextSr = next((sr for sr in self._searchResults if sr.start > index), self._searchResults[0])
+		begin = self.cePositionFromIndex(nextSr.start)
+		end = self.cePositionFromIndex(nextSr.end)
+		self.setSelection(*begin, *end)
 
-	def prevSearchResult(self):
+	def prevSearchResult(self) -> None:
 		if not self._searchResults:
 			return
-		line, index = self.getCursorPosition()
+		line, column = self.getCursorPosition()
+		index = self.positionFromLineIndex(line, column)
 
-		nextSr = next((sr for sr in reversed(self._searchResults) if sr[2] < line or (sr[2]==line and sr[3] < index)), self._searchResults[-1])
-		self.setSelection(*nextSr)
+		nextSr = next((sr for sr in reversed(self._searchResults) if sr.end < index), self._searchResults[-1])
+		begin = self.cePositionFromIndex(nextSr.start)
+		end = self.cePositionFromIndex(nextSr.end)
+		self.setSelection(*begin, *end)
 
 	def autoCompletionTree(self) -> Optional[AutoCompletionTree]:
 		return getattr(self.lexer(), 'autoCompletionTree', lambda: None)()
@@ -826,7 +948,7 @@ class CodeEditor(
 
 	@override
 	def getBorderBrushes(self, rect: QRect) -> tuple[QBrush, QBrush, QBrush]:
-		self.initIndicatorStyles(indicatorStyles)
+		self.initIndicatorStyles(indicatorStyles)  # huh?
 		return self.getBorderBrush(), self.getBorderBrush2(), QBrush(Qt.NoBrush)
 
 	@override
@@ -956,24 +1078,11 @@ def advancedCodeField(
 	codeField: CodeEditor = _innerAdvancedCodeField(gui, code, label, language, focusEndOfText, cursorPosition, selectionTo, searchResults, prev, next, **kwargs)
 
 	# handle possible custom errorRanges:
-	# clear all old error markers:
-	fullRange = (*codeField.lineIndexFromPosition(0), *codeField.lineIndexFromPosition(len(codeField.text())))
-	codeField.clearIndicatorRange(*fullRange, Indicator.Error.value)
-	codeField.clearIndicatorRange(*fullRange, Indicator.Warning.value)
-	codeField.clearIndicatorRange(*fullRange, Indicator.Info.value)
-
-	# add all new error markers:
-	if errors:
-		lastIdx = codeField.length() - 1
-		for error in errors:
-			indicator = errorIndicatorStyles.get(error.style, Indicator.Error.value)
-			if (beginIdx := error.position.index) == lastIdx and beginIdx > 0:
-				beginIdx -= 1
-			begin = codeField.cePositionFromIndex(beginIdx)
-			if (endIdx := error.end.index) == beginIdx or endIdx == 0:
-				endIdx += 1
-			end = codeField.cePositionFromIndex(endIdx)
-			codeField.fillIndicatorRange(*begin, *end, indicator)
+	indicatorRanges: dict[int, list[IndexSpan]] = {indicator: [] for indicator in errorIndicatorStyles.values()}
+	for error in errors:
+		indicator = errorIndicatorStyles.get(error.style, CatIndicatorIds.CAT_FALLBACK)
+		indicatorRanges[indicator].append(IndexSpan(error.position.index, error.end.index))
+	codeField.updateIndicatorRanges(indicatorRanges)
 
 	result: str = codeField.text()  # .replace('\r\n', '\n')
 	if returnCursorPos:
