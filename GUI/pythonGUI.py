@@ -2174,9 +2174,8 @@ class PythonGUI(CatScalableWidgetMixin):
 			searchResults: Optional[list[codeEditor.IndexSpan]] = None,
 			prev: bool = False,
 			next: bool = False,
-			searchOptions: Optional[codeEditor.SearchOptions] = None,
-			**kwargs) -> str:
-		return codeEditor.advancedCodeField(self, code, label=label, language=language, isMultiline=isMultiline, searchResults=searchResults, next=next, prev=prev, searchOptions=searchOptions, **kwargs)
+			**kwargs) -> str | tuple[str, tuple[int, int]]:
+		return codeEditor.advancedCodeField(self, code, label=label, language=language, searchResults=searchResults, next=next, prev=prev, **kwargs)
 
 	_defaultButtonsForMessageBox: ClassVar[dict[MessageBoxStyle, MessageBoxButtons]] = {
 		MessageBoxStyle.Information : {MessageBoxButton.Ok},

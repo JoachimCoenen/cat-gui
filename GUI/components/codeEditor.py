@@ -868,22 +868,14 @@ def _innerAdvancedCodeField(
 		code: Optional[str],
 		label=None,
 		language: str = 'PlainText',
-		isMultiline=True,
 		focusEndOfText: bool = False,
 		cursorPosition: tuple[int, int] = None,
 		selectionTo: tuple[int, int] = None,
 		searchResults: Optional[list[IndexSpan]] = None,
 		prev: bool = False,
 		next: bool = False,
-		searchOptions: Optional[SearchOptions] = None,
 		**kwargs
 ) -> CodeEditor:
-	# style: Style = getStyles().fixedWidthChar
-	# explicitStyle: Optional[Style] = kwargs.get('style', None)
-	# if explicitStyle is not None:
-	# 	style += explicitStyle
-	# style = Style({'CodeEditor': style})
-	# kwargs['style'] = style
 	kwargs.setdefault('caretLineVisible', True)
 	kwargs.setdefault('eolMode', QsciEolMode.EolUnix.value)
 	kwargs.setdefault('scrollWidthTracking', True)
@@ -941,13 +933,6 @@ def _innerAdvancedCodeField(
 		codeField.nextSearchResult()
 	if prev:
 		codeField.prevSearchResult()
-		# codeField.getCursorPosition()
-		# if searchOptions is None:
-		# 	codeField.findFirst(searchExpr, False, False, False, True, not rev)# , *codeField.getCursorPosition())
-		# else:
-		# 	codeField.findFirst(searchExpr, searchOptions.isRegex, searchOptions.isCaseSensitive, False, True, not rev)# , *codeField.getCursorPosition())
-		# if rev:
-		# 	codeField.findNext()
 
 	connectOnlyOnce(codeField, codeField.textChanged, lambda: gui.OnInputModified(codeField), '_OnInputModified_')
 	return codeField
@@ -958,19 +943,17 @@ def advancedCodeField(
 		code: Optional[str],
 		label=None,
 		language: str = 'PlainText',
-		isMultiline=True,
 		focusEndOfText: bool = False,
 		cursorPosition: tuple[int, int] = None,
 		selectionTo: tuple[int, int] = None,
 		searchResults: Optional[list[IndexSpan]] = None,
 		prev: bool = False,
 		next: bool = False,
-		searchOptions: Optional[SearchOptions] = None,
 		returnCursorPos: bool = False,
 		errors: list[Error] = None,
 		**kwargs
 ) -> Union[str, tuple[str, tuple[int, int]]]:
-	codeField: CodeEditor = _innerAdvancedCodeField(gui, code, label, language, isMultiline, focusEndOfText, cursorPosition, selectionTo, searchResults, prev, next, searchOptions, **kwargs)
+	codeField: CodeEditor = _innerAdvancedCodeField(gui, code, label, language, focusEndOfText, cursorPosition, selectionTo, searchResults, prev, next, **kwargs)
 
 	# handle possible custom errorRanges:
 	# clear all old error markers:
