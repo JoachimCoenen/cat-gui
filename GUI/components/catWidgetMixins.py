@@ -988,7 +988,7 @@ def changeHue(c1: QColor, hue: int) -> QColor:
 _CLEAR_COLOR = QColor(0, 0, 0, 0)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class BaseColors:
 	Icon: QColor
 	DisabledIcon: QColor
@@ -1018,6 +1018,9 @@ class BaseColors:
 	Link: QColor
 	LinkVisited: QColor
 
+	ErrorText: QColor
+	WarningText: QColor
+
 
 DEFAULT_COLORS = BaseColors(
 	Icon=QColor('#606060'),
@@ -1046,6 +1049,9 @@ DEFAULT_COLORS = BaseColors(
 
 	Link=QColor('#0000ff'),
 	LinkVisited=QColor('#ff00ff'),
+
+	ErrorText=QColor('#ff0000'),
+	WarningText=QColor('#7f7f00'),
 )
 
 

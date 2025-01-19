@@ -6,6 +6,7 @@ from typing import Callable, Dict, Mapping, Optional, Union, Type, overload
 
 from PyQt5 import QtCore
 
+from .components.catWidgetMixins import getGUIColors
 from ..utils import Decorator
 from ..utils.collections_ import FrozenDict
 
@@ -156,13 +157,13 @@ class Styles:
 	@_StyleProperty
 	def warning(self) -> Style:
 		return self.hint + Style({
-			'color': 'rgb(127, 127, 0)',
+			'color': getGUIColors().WarningText.name(),
 		})
 
 	@_StyleProperty
 	def error(self) -> Style:
 		return self.hint + Style({
-			'color': 'rgb(255, 0, 0)',
+			'color': getGUIColors().ErrorText.name(),
 		})
 
 	@_StyleProperty
