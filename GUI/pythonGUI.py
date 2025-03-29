@@ -1981,16 +1981,16 @@ class PythonGUI(CatScalableWidgetMixin):
 				return True
 		return button.isChecked()
 
-	def button(self, text='', icon: QtGui.QIcon = None, autoDefault: bool = False, overlap: Overlap = (0, 0), roundedCorners: RoundedCorners = CORNERS.ALL, **kwargs):
+	def button(self, text='', icon: QtGui.QIcon = None, autoDefault: bool = False, overlap: Overlap = (0, 0), roundedCorners: RoundedCorners = CORNERS.ALL, **kwargs) -> bool:
 		return self._button(CatButton, text, icon, autoDefault, overlap, roundedCorners, **kwargs)
 
-	def toolButton(self, text='', icon: QtGui.QIcon = None, autoDefault: bool = False, overlap: Overlap = (0, 0), roundedCorners: RoundedCorners = CORNERS.NONE, **kwargs):
+	def toolButton(self, text='', icon: QtGui.QIcon = None, autoDefault: bool = False, overlap: Overlap = (0, 0), roundedCorners: RoundedCorners = CORNERS.NONE, **kwargs) -> bool:
 		return self._button(CatToolButton, text, icon, autoDefault, overlap, roundedCorners, **kwargs)
 
-	def gradiantButton(self, text='', icon: QtGui.QIcon = None, autoDefault: bool = False, overlap: Overlap = (0, 0), roundedCorners: RoundedCorners = CORNERS.ALL, **kwargs):
+	def gradiantButton(self, text='', icon: QtGui.QIcon = None, autoDefault: bool = False, overlap: Overlap = (0, 0), roundedCorners: RoundedCorners = CORNERS.ALL, **kwargs) -> bool:
 		return self._button(CatGradiantButton, text, icon, autoDefault, overlap, roundedCorners, **kwargs)
 
-	def framelessButton(self, text='', icon: QtGui.QIcon = None, autoDefault: bool = False, overlap: Overlap = (0, 0), roundedCorners: RoundedCorners = CORNERS.ALL, **kwargs):
+	def framelessButton(self, text='', icon: QtGui.QIcon = None, autoDefault: bool = False, overlap: Overlap = (0, 0), roundedCorners: RoundedCorners = CORNERS.ALL, **kwargs) -> bool:
 		return self._button(CatFramelessButton, text, icon, autoDefault, overlap, roundedCorners, **kwargs)
 
 	_defaultButtonTranslations: ClassVar[dict[MessageBoxButton, Callable[[], str]]] = {
