@@ -995,6 +995,12 @@ class PythonGUI(CatScalableWidgetMixin):
 		except AttributeError:
 			pass
 		try:
+			fi = item.fontInfo()
+			sn = fi.family()
+			infos.append(f'font = {sn}')
+		except AttributeError:
+			pass
+		try:
 			gm = item.geometry()
 			tl = item.mapToParent(gm.topLeft())
 			gm = (tl.x(), tl.y(), gm.width(), gm.height())
