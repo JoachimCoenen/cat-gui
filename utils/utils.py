@@ -11,8 +11,7 @@ from collections import defaultdict
 from enum import Enum
 from functools import wraps
 from types import TracebackType, FrameType
-from typing import Any, Callable, ContextManager, Generic, IO, Iterable, Iterator, Optional, TYPE_CHECKING, Tuple, Type, \
-	TypeVar, Union, overload, ClassVar, Concatenate, cast
+from typing import Any, Callable, ContextManager, IO, Iterable, Iterator, TYPE_CHECKING, Type, overload, cast
 from warnings import warn
 
 try:
@@ -23,12 +22,6 @@ except ImportError:
 	Qt = QTimer = QApplication = pyqtBoundSignal = None
 else:
 	HAS_QT = True
-
-
-_TCallable = TypeVar('_TCallable', bound=Callable)
-_TT = TypeVar('_TT')
-_TD = TypeVar('_TD')
-_TR = TypeVar('_TR')
 
 
 def __onCrash__(exception):
@@ -43,7 +36,7 @@ if True:  # Anything, Nothing, Everything
 			return instance is self
 
 	class Anything(metaclass=_SingletonTypeMetaclass):
-		""" Denotes Anyhing (=^= not None, at least one)."""
+		""" Denotes Anything (=^= not None, at least one)."""
 		def __new__(cls, *args, **kwargs) -> Type[Anything] | Anything:  # type: ignore
 			return Anything
 
@@ -81,7 +74,7 @@ class Singleton:
 
 
 @property
-def NotImplementedField(self) :
+def NotImplementedField(self):
 	"""Used to define a field, that a subclass has to implement.
 	::
 		class WrapperABC(ABC):
@@ -126,11 +119,11 @@ class DocEnum(Enum):
 		return self
 
 
-class IdentityCtxMgr(ContextManager[_TT], Generic[_TT]):
-	def __init__(self, value: _TT):
-		self._value: _TT = value
+class IdentityCtxMgr[TT](ContextManager[TT]):
+	def __init__(self, value: TT):
+		self._value: TT = value
 
-	def __enter__(self) -> _TT:
+	def __enter__(self) -> TT:
 		return self._value
 
 	def __exit__(self, exc_type, exc_val, exc_tb):
@@ -139,9 +132,7 @@ class IdentityCtxMgr(ContextManager[_TT], Generic[_TT]):
 
 # Decorators:
 if True:
-	_TDecoratable = TypeVar('_TDecoratable', bound=Union[Type, Callable])
-
-	def Decorator(classOrFunc: _TDecoratable) -> _TDecoratable:
+	def Decorator[T: Type | Callable](classOrFunc: T) -> T:
 		"""
 		This is a decorator, used to mark functions and classes as a decorator explicitly.
 		"""
@@ -149,11 +140,11 @@ if True:
 
 
 	@Decorator
-	class CachedProperty(Generic[_TT]):
-		def __init__(self, func: Callable[[Any], _TT]):
-			self._func: Callable[[Any], _TT] = func
+	class CachedProperty[TT]:
+		def __init__(self, func: Callable[[Any], TT]):
+			self._func: Callable[[Any], TT] = func
 
-		def __get__(self, instance, owner) -> _TT:
+		def __get__(self, instance, owner) -> TT:
 			if instance is None:
 				return self
 			value = self._func(instance)
@@ -254,7 +245,7 @@ if QTimer is not None and Qt is not None:
 			self._delay: int = delay
 			self._versionCounters: dict[int, int] = defaultdict(int)
 			self._pending: set[int] = set()
-			self._method: Optional[Callable] = None
+			self._method: Callable | None = None
 
 		def __get__(self, instance, owner):  # -> _DeferredCall:
 			if instance is None:
@@ -305,7 +296,7 @@ if QTimer is not None and Qt is not None:
 
 if QApplication is not None:
 	@Decorator
-	def BusyIndicator(func: _TCallable) -> _TCallable:
+	def BusyIndicator[TCallable](func: TCallable) -> TCallable:
 		@wraps(func)
 		def wrappedFunc(*args, **kwargs):
 			QApplication.setOverrideCursor(Qt.WaitCursor)
@@ -317,13 +308,13 @@ if QApplication is not None:
 		return wrappedFunc
 else:
 	@Decorator
-	def BusyIndicator(func: _TCallable) -> _TCallable:
+	def BusyIndicator[TCallable](func: TCallable) -> TCallable:
 		return func
 
 
 # @Deprecated(...)
 if True:
-	def _deprecate(func: Callable, *, doc: Optional[str], msg: Optional[str], typeForMsg: str, nameForMsg: str):
+	def _deprecate(func: Callable, *, doc: str | None, msg: str | None, typeForMsg: str, nameForMsg: str):
 		deprecateMsg: str = f"{typeForMsg} {nameForMsg} is deprecated.{f' {msg}' if msg else ''}"
 
 		@wraps(func)
@@ -340,7 +331,7 @@ if True:
 		deprecatedFunc.__doc__ = '*WARNING*: ' + deprecateMsg + ('\n\n' + doc if doc else '')
 		return deprecatedFunc
 
-	def _deprecateClass(cls: Type, *, doc: Optional[str], msg: Optional[str]):
+	def _deprecateClass(cls: Type, *, doc: str | None, msg: str | None):
 		initFunc = getattr(cls, '__init__', None)
 		if initFunc is None:
 			def initFunc(self, *args, **kwargs):
@@ -352,10 +343,10 @@ if True:
 		setattr(cls, '__init__', _deprecate(initFunc, doc=doc, msg=msg, typeForMsg=cls.__qualname__, nameForMsg=cls.__qualname__))
 		return cls
 
-	def _deprecateFunction(func: Callable, *, doc: Optional[str], msg: Optional[str]):
+	def _deprecateFunction(func: Callable, *, doc: str | None, msg: str | None):
 		return _deprecate(func, doc=doc, msg=msg, typeForMsg='Function', nameForMsg=func.__qualname__)
 
-	def _makeDeprecated(funcMethodOrClass: Union[Callable, Type], *, doc: Optional[str], msg: Optional[str]):
+	def _makeDeprecated(funcMethodOrClass: Callable | Type, *, doc: str | None, msg: str | None):
 		if isinstance(funcMethodOrClass, type):
 			return _deprecateClass(funcMethodOrClass, doc=doc, msg=msg)
 		else:
@@ -364,20 +355,20 @@ if True:
 
 	@Decorator
 	@overload
-	def Deprecated(funcMethodOrClass: _TCallable, doc: Optional[str] = None, *, msg: Optional[str] = None) -> _TCallable:
-		# just an overlaod
+	def Deprecated[TCallable](funcMethodOrClass: TCallable, doc: str | None = None, *, msg: str | None = None) -> TCallable:
+		# just an overload
 		pass
 
 
 	@Decorator
 	@overload
-	def Deprecated(*, msg: Optional[str] = None) -> Callable[[_TCallable], _TCallable]:
-		# just an overlaod
+	def Deprecated[TCallable](*, msg: str | None = None) -> Callable[[TCallable], TCallable]:
+		# just an overload
 		pass
 
 
 	@Decorator
-	def Deprecated(*args, msg: Optional[str] = None):
+	def Deprecated(*args, msg: str | None = None):
 		if args:
 			funcMethodOrClass = args[0]
 			if len(args) >= 2:
@@ -424,14 +415,14 @@ if True:
 	ENCODINGS = _ENCODINGS()
 
 	def openOrCreate(
-			file: Union[str, bytes, int, os.PathLike],
+			file: str | bytes | int | os.PathLike,
 			mode: str = 'r',
 			buffering: int = -1,
-			encoding: Optional[str] = None,
-			errors: Optional[str] = None,
-			newline: Optional[str] = None,
+			encoding: str | None = None,
+			errors: str | None = None,
+			newline: str | None = None,
 			closefd: bool = True,
-			opener: Optional[Callable[[str, int], int]] = None
+			opener: Callable[[str, int], int] | None = None
 	) -> IO[Any]:
 		"""
 		Open file and return a stream.  Raise OSError upon failure.
@@ -529,12 +520,6 @@ if True:
 
 # findall(...), flatmap(...), outerZip(...), mix(...), ...:
 if True:
-	TT1 = TypeVar('TT1'); TF1 = TypeVar('TF1')
-	TT2 = TypeVar('TT2'); TF2 = TypeVar('TF2')
-	TT3 = TypeVar('TT3'); TF3 = TypeVar('TF3')
-	TT4 = TypeVar('TT4'); TF4 = TypeVar('TF4')
-	TT5 = TypeVar('TT5'); TF5 = TypeVar('TF5')
-	TT6 = TypeVar('TT6'); TF6 = TypeVar('TF6')
 
 	def findall(p: str, s: str):
 		'''Yields all the positions of the pattern p in the string s.'''
@@ -552,26 +537,26 @@ if True:
 		pass
 
 	@overload
-	def outerZip(iterable1: Iterable[TT1], iterable2: Iterable[TT2], *, fillValues: Tuple[TF1, TF2]) -> Iterator[Tuple[Union[TT1, TF1], Union[TT2, TF2]]]:
+	def outerZip[TT1, TF1, TT2, TF2](iterable1: Iterable[TT1], iterable2: Iterable[TT2], *, fillValues: tuple[TF1, TF2]) -> Iterator[tuple[TT1 | TF1, TT2 | TF2]]:
 		pass
 
 	@overload
-	def outerZip(iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], *, fillValues: Tuple[TF1, TF2, TF3]) -> Iterator[Tuple[Union[TT1, TF1], Union[TT2, TF2], Union[TT3, TF3]]]:
+	def outerZip[TT1, TF1, TT2, TF2, TT3, TF3](iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], *, fillValues: tuple[TF1, TF2, TF3]) -> Iterator[tuple[TT1 | TF1, TT2 | TF2, TT3 | TF3]]:
 		pass
 
 	@overload
-	def outerZip(iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], iterable4: Iterable[TT4], *, fillValues: Tuple[TF1, TF2, TF3, TF4]) -> Iterator[Tuple[Union[TT1, TF1], Union[TT2, TF2], Union[TT3, TF3], Union[TT4, TF4]]]:
+	def outerZip[TT1, TF1, TT2, TF2, TT3, TF3, TT4, TF4](iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], iterable4: Iterable[TT4], *, fillValues: tuple[TF1, TF2, TF3, TF4]) -> Iterator[tuple[TT1 | TF1, TT2 | TF2, TT3 | TF3, TT4 | TF4]]:
 		pass
 
 	@overload
-	def outerZip(iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], iterable4: Iterable[TT4], iterable5: Iterable[TT5], *, fillValues: Tuple[TF1, TF2, TF3, TF4, TF5]) -> Iterator[Tuple[Union[TT1, TF1], Union[TT2, TF2], Union[TT3, TF3], Union[TT4, TF4], Union[TT5, TF5]]]:
+	def outerZip[TT1, TF1, TT2, TF2, TT3, TF3, TT4, TF4, TT5, TF5](iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], iterable4: Iterable[TT4], iterable5: Iterable[TT5], *, fillValues: tuple[TF1, TF2, TF3, TF4, TF5]) -> Iterator[tuple[TT1 | TF1, TT2 | TF2, TT3 | TF3, TT4 | TF4, TT5 | TF5]]:
 		pass
 
 	@overload
-	def outerZip(iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], iterable4: Iterable[TT4], iterable5: Iterable[TT5], iterable6: Iterable[TT6], *, fillValues: Tuple[TF1, TF2, TF3, TF4, TF5, TF6]) -> Iterator[Tuple[Union[TT1, TF1], Union[TT2, TF2], Union[TT3, TF3], Union[TT4, TF4], Union[TT5, TF5], Union[TT6, TF6]]]:
+	def outerZip[TT1, TF1, TT2, TF2, TT3, TF3, TT4, TF4, TT5, TF5, TT6, TF6](iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], iterable4: Iterable[TT4], iterable5: Iterable[TT5], iterable6: Iterable[TT6], *, fillValues: tuple[TF1, TF2, TF3, TF4, TF5, TF6]) -> Iterator[tuple[TT1 | TF1, TT2 | TF2, TT3 | TF3, TT4 | TF4, TT5 | TF5, TT6 | TF6]]:
 		pass
 
-	def outerZip(*args: Tuple[Iterable[_TT], ...], fillValues: Tuple[_TT, ...]) -> Iterator[Tuple[_TT, ...]]:
+	def outerZip[TT](*args: tuple[Iterable[TT], ...], fillValues: tuple[TT, ...]) -> Iterator[tuple[TT, ...]]:
 		argsLen = len(args)
 		fillValuesLen = len(fillValues)
 		if argsLen != fillValuesLen:
@@ -603,7 +588,7 @@ if True:
 	def mix(a: float, b: float, x: float) -> float: ...
 
 	@overload
-	def mix(a: _TT, b: _TT, x: float) -> _TT: ...
+	def mix[TT](a: TT, b: TT, x: float) -> TT: ...
 
 	def mix(a: Any, b: Any, x: float) -> Any:
 		return a + (b - a) * x
