@@ -2,94 +2,77 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, List, Optional, Sequence, TYPE_CHECKING, TypeVar, Union
+from typing import Any, Callable, Sequence, TYPE_CHECKING, ClassVar, cast, TypeAlias
 
 from PyQt5.QtCore import QAbstractItemModel, QItemSelectionModel, QModelIndex, QPoint, Qt
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QColor, QPixmap
 from better_orderedmultidict import OrderedMultiDict as DeOrderedMultiDict
 
 from cat.utils.utils import CrashReportWrapped
-from ...GUI.components.treeBuilderABC import DecorationRole, TreeBuilderABC
 from ...utils.formatters import formatVal
 
 if TYPE_CHECKING:
-	from .treeBuilders import DataListBuilder, DataTreeBuilderNode
-else:
-	DataListBuilder = Any
-	DataTreeBuilderNode = Any
+	from .treeBuilders import DataTreeBuilderNode, DataHeaderBuilder
 
 
-_TT = TypeVar('_TT')
+DecorationRole: TypeAlias = QColor | QIcon | QPixmap
 
 
-@dataclass
-class _DataListDefs:
-	childrenMaker  : Callable[[_TT], Sequence[_TT]]
+@dataclass(init=False)
+class _DataListDefs[TT]:
+	childrenMaker  : Callable[[TT], Sequence[TT]]
 	isTree         : bool
-	labelMaker     : Callable[[_TT, int], str]
-	iconMaker      : Optional[Callable[[_TT, int], Optional[QIcon]]]
-	toolTipMaker   : Optional[Callable[[_TT, int], Optional[str]]]
+	labelMaker     : Callable[[TT, int], str]
+	iconMaker      : Callable[[TT, int], QIcon | None]
+	toolTipMaker   : Callable[[TT, int], str | None]
 	columnCount    : int
 	suppressUpdate : bool
-	onDoubleClick  : Optional[Callable[[_TT], None]]  # this stays an optional intentionally.
-	onContextMenu  : Optional[Callable[[_TT, int], None]]
-	onCopy         : Optional[Callable[[_TT], Optional[str]]]
-	onCut          : Optional[Callable[[_TT], Optional[str]]]
-	onPaste        : Optional[Callable[[_TT, str], None]]
-	onDelete       : Optional[Callable[[_TT], None]]
-	isSelected     : Optional[Callable[[_TT], bool]]
-	getId          : Optional[Callable[[_TT], Any]]
+	onDoubleClick  : Callable[[TT], None] | None  # this stays an optional intentionally.
+	onContextMenu  : Callable[[TT, int], None]
+	onCopy         : Callable[[TT], str | None]
+	onCut          : Callable[[TT], str | None]
+	onPaste        : Callable[[TT, str], None]
+	onDelete       : Callable[[TT], None]
+	isSelected     : Callable[[TT], bool]
+	getId          : Callable[[TT], Any]
 
-	def __post_init__(self):
-		# funcNames = [
-		# 	'childrenMaker',
-		# 	'labelMaker',
-		# 	'iconMaker',
-		# 	'toolTipMaker',
-		# 	'onDoubleClick',
-		# 	'onContextMenu',
-		# 	'onDelete',
-		# 	'getId',
-		# ]
-		# for funcName in funcNames:
-		# 	func = getattr(self, funcName)
-		# 	if func is not None:
-		# 		if not hasattr(func, '__CrashReportWrapped__'):
-		# 			setattr(self, funcName, CrashReportWrapped(func))
+	def __init__(self,
+		childrenMaker  : Callable[[TT], Sequence[TT]],
+		isTree         : bool,
+		labelMaker     : Callable[[TT, int], str],
+		iconMaker      : Callable[[TT, int], QIcon | None] | None,
+		toolTipMaker   : Callable[[TT, int], str | None] | None,
+		columnCount    : int,
+		suppressUpdate : bool,
+		onDoubleClick  : Callable[[TT], None] | None,  # this stays an optional intentionally.
+		onContextMenu  : Callable[[TT, int], None] | None,
+		onCopy         : Callable[[TT], str | None] | None,
+		onCut          : Callable[[TT], str | None] | None,
+		onPaste        : Callable[[TT, str], None] | None,
+		onDelete       : Callable[[TT], None] | None,
+		isSelected     : Callable[[TT], bool] | None,
+		getId          : Callable[[TT], Any] | None,
+	):
+		self.childrenMaker  = childrenMaker
+		self.isTree         = isTree
+		self.labelMaker     = labelMaker
+		self.iconMaker      = iconMaker if iconMaker is not None else lambda x, i: None
+		self.toolTipMaker   = toolTipMaker if toolTipMaker is not None else lambda x, i: None
+		self.columnCount    = columnCount
+		self.suppressUpdate = suppressUpdate
+		self.onDoubleClick  = onDoubleClick  # See comment on 'onDoubleClick' attrinute above
+		self.onContextMenu  = onContextMenu if onContextMenu is not None else lambda x, i: None
+		self.onCopy         = onCopy if onCopy is not None else lambda x: None
+		self.onCut          = onCut if onCut is not None else lambda x: None
+		self.onPaste        = onPaste if onPaste is not None else lambda x, v: None
+		self.onDelete       = onDelete if onDelete is not None else lambda x: None
+		self.isSelected     = isSelected if isSelected is not None else lambda x: False
+		self.getId          = getId if getId is not None else lambda x: x
 
-		if self.iconMaker is None:
-			self.iconMaker = lambda x, i: None
-
-		if self.toolTipMaker is None:
-			self.toolTipMaker = lambda x, i: None
-
-		# if self.onDoubleClick is None:  See comment on 'onDoubleClick' attrinute above
-		# 	self.onDoubleClick = lambda x: None
-
-		if self.onContextMenu is None:
-			self.onContextMenu = lambda x, i: None
-
-		if self.onCopy is None:
-			self.onCopy = lambda x: None
-
-		if self.onCut is None:
-			self.onCut = lambda x: None
-
-		if self.onPaste is None:
-			self.onPaste = lambda x, v: None
-
-		if self.onDelete is None:
-			self.onDelete = lambda x: None
-
-		if self.isSelected is None:
-			self.isSelected = lambda x: False
-
-		if self.getId is None:
-			self.getId = lambda x: x
 
 @dataclass
 class Operation:
-	pass
+	type: ClassVar[int]
 
 	@abstractmethod
 	def apply(self, aList: list):
@@ -140,18 +123,18 @@ class MoveOperation(Operation):
 		return aList
 
 
-class ListUpdater(Generic[_TT]):
+class ListUpdater[TT]:
 
-	def __init__(self, oldList: list[_TT], newList: list[_TT]):
+	def __init__(self, oldList: list[TT], newList: list[TT]):
 		super(ListUpdater, self).__init__()
 
-		self.intList: list[_TT] = oldList.copy()  # intermediateList
-		self.newList: list[_TT] = newList
+		self.intList: list[TT] = oldList.copy()  # intermediateList
+		self.newList: list[TT] = newList
 
 		self.operations: list[Operation] = []
 
-	def _getIndexDict(self, aList: list[_TT]) -> DeOrderedMultiDict[_TT, int]:
-		aDict: DeOrderedMultiDict[_TT, int] = DeOrderedMultiDict[_TT, int]()
+	def _getIndexDict(self, aList: list[TT]) -> DeOrderedMultiDict[TT, int]:
+		aDict: DeOrderedMultiDict[TT, int] = DeOrderedMultiDict[TT, int]()
 		for i, v in enumerate(aList):
 			aDict.add(v, i)
 		return aDict
@@ -290,7 +273,7 @@ class ListUpdater(Generic[_TT]):
 
 		self.intList = intList
 
-	def findAllDeleteOperations(self):
+	def findAllDeleteOperations(self) -> None:
 		intList = self.intList
 		newDictCpy = self._getIndexDict(self.newList)
 		newIntList: list = []
@@ -331,7 +314,7 @@ class ListUpdater(Generic[_TT]):
 		self.intList = newIntList
 
 
-def getUpdateOperations(oldList: list[_TT], newList: list[_TT]) -> list[Operation]:
+def getUpdateOperations[TT](oldList: list[TT], newList: list[TT]) -> list[Operation]:
 	if not oldList and not newList:
 		return []
 	lu = ListUpdater(oldList, newList)
@@ -339,42 +322,26 @@ def getUpdateOperations(oldList: list[_TT], newList: list[_TT]) -> list[Operatio
 	return lu.operations
 
 
-_TTreeItem = TypeVar('_TTreeItem', bound='TreeItemBase')
+class DataTreeItem:
+	def __init__(self, data: Any, treeBuilder: _DataListDefs | None, treeModelRoot: DataTreeModel) -> None:
+		super(DataTreeItem, self).__init__()
+		self._parentItem: DataTreeItem | None = None
+		self.childItems: list[DataTreeItem] = []
+		self._treeModelRoot: DataTreeModel = treeModelRoot
 
-
-class TreeItemBase(Generic[_TTreeItem]):
-	def __init__(self, treeModelRoot: TreeModel):
-		super(TreeItemBase, self).__init__()
-		self._parentItem: Optional[_TTreeItem] = None
-		self.childItems: List[_TTreeItem] = []
-		self._treeModelRoot: TreeModel = treeModelRoot
-
-		self.displayCache: Optional[Any] = None
+		self.displayCache: Any | None = None
 		self.isLoaded: bool = False
 		self.isUpdating: bool = False
 
+		self._data: Any = data
+		self.treeBuilder: _DataListDefs | None = treeBuilder
+		self._id: Any = treeBuilder.getId(data) if treeBuilder is not None else None
+
 	@classmethod
-	@abstractmethod
-	def createEmpty(cls, treeModelRoot: TreeModel) -> _TTreeItem:
-		pass
+	def createEmpty(cls, treeModelRoot: DataTreeModel) -> DataTreeItem:
+		return DataTreeItem(None, None, treeModelRoot=treeModelRoot)
 
-	def __insertChild(self, item: _TTreeItem, row: int, index: QModelIndex):
-		self._treeModelRoot.beginInsertRows(index, row, row)
-		self.childItems.insert(row, item)
-		self._treeModelRoot.endInsertRows()
-		item._parentItem = self
-
-	def __removeChild(self, childItemIndex: int, index: QModelIndex):
-		row = childItemIndex  # item.row()
-		self._treeModelRoot.beginRemoveRows(index, row, row)
-
-		item = self.childItems[childItemIndex]
-		del self.childItems[childItemIndex]
-		item._parentItem = None
-
-		self._treeModelRoot.endRemoveRows()
-
-	def child(self, row: int) -> _TTreeItem:
+	def child(self, row: int) -> DataTreeItem:
 		return self.childItems[row]
 
 	def childCount(self) -> int:
@@ -383,10 +350,10 @@ class TreeItemBase(Generic[_TTreeItem]):
 	def hasChildren(self) -> bool:
 		return len(self.childItems) > 0
 
-	def parent(self) -> Optional[_TTreeItem]:
+	def parent(self) -> DataTreeItem | None:
 		return self._parentItem
 
-	def index(self, other: _TTreeItem) -> int:
+	def index(self, other: DataTreeItem) -> int:
 		return self.childItems.index(other)
 
 	def _getModelIndexOfSelf(self) -> QModelIndex:
@@ -396,92 +363,22 @@ class TreeItemBase(Generic[_TTreeItem]):
 		return self._treeModelRoot.index(i, 0, self._parentItem._getModelIndexOfSelf())
 
 	def row(self) -> int:
-		if self.parent():
+		if (parent := self.parent()) is not None:
 			try:
-				return self.parent().index(self)
+				return parent.index(self)
 			except ValueError as e:
 				print(e)
 				raise
 		return 0
-
-	@abstractmethod
-	def columnCount(self) -> int:
-		pass
-
-	@abstractmethod
-	def label(self, column: int) -> Optional[str]:
-		pass
-
-	@abstractmethod
-	def icon(self, column: int) -> Optional[DecorationRole]:
-		pass
-
-	@abstractmethod
-	def toolTip(self, column: int) -> Optional[str]:
-		pass
-
-	@abstractmethod
-	def getData(self, column: int) -> Optional[Any]:
-		pass
-
-	@abstractmethod
-	def onCopy(self) -> Optional[str]:
-		pass
-
-	@abstractmethod
-	def onCut(self) -> Optional[str]:
-		pass
-
-	@abstractmethod
-	def onPaste(self, data: str):
-		pass
-
-	@abstractmethod
-	def onDelete(self) -> None:
-		pass
-
-	@abstractmethod
-	def onDoubleClick(self) -> bool:
-		"""
-		:return: True if a Action was taken, else False
-		"""
-		pass
-
-	@abstractmethod
-	def onContextMenu(self, column: int, pos: QPoint):
-		pass
-
-	def loadSubTree(self, selectionModel: QItemSelectionModel):
-		for child in self.childItems:
-			child.updateTree(selectionModel)
-		self.isLoaded = True
-
-	@abstractmethod
-	def updateTree(self, selectionModel: QItemSelectionModel):
-		pass
-
-	@abstractmethod
-	def setTreeBuilderForRoot(self, treeBuilder: TreeBuilderABC) -> None:
-		pass
-
-
-class DataTreeItem(TreeItemBase['DataTreeItem']):
-	def __init__(self, data: Any, treeBuilder: Optional[_DataListDefs], treeModelRoot: TreeModel):
-		super(DataTreeItem, self).__init__(treeModelRoot)
-		self._data: Any = data
-		self.treeBuilder: Optional[_DataListDefs] = treeBuilder
-		self._id: Any = treeBuilder.getId(data) if treeBuilder is not None else None
-
-	@classmethod
-	def createEmpty(cls, treeModelRoot: TreeModel) -> DataTreeItem:
-		return DataTreeItem(None, None, treeModelRoot=treeModelRoot)
 
 	def columnCount(self) -> int:
 		if self.treeBuilder is None:
 			return 1
 		return self.treeBuilder.columnCount
 
-	def label(self, column: int) -> Optional[str]:
+	def label(self, column: int) -> str | None:
+		if self.treeBuilder is None:
+			return None
 		try:
 			label = self.treeBuilder.labelMaker(self._data, column)
 			return label
@@ -490,7 +387,9 @@ class DataTreeItem(TreeItemBase['DataTreeItem']):
 			raise  # TODO: remove try:... except IndexError as e:... clause
 			return None
 
-	def icon(self, column: int) -> Optional[DecorationRole]:
+	def icon(self, column: int) -> DecorationRole | None:
+		if self.treeBuilder is None:
+			return None
 		try:
 			icon = self.treeBuilder.iconMaker(self._data, column)
 			return icon
@@ -499,7 +398,9 @@ class DataTreeItem(TreeItemBase['DataTreeItem']):
 			raise  # TODO: remove try:... except IndexError as e:... clause
 			return None
 
-	def toolTip(self, column: int) -> Optional[str]:
+	def toolTip(self, column: int) -> str | None:
+		if self.treeBuilder is None:
+			return None
 		try:
 			tip = self.treeBuilder.toolTipMaker(self._data, column)
 			return tip
@@ -508,33 +409,41 @@ class DataTreeItem(TreeItemBase['DataTreeItem']):
 			raise  # TODO: remove try:... except IndexError as e:... clause
 			return None
 
-	def getData(self, column: int) -> Optional[Any]:
+	def getData(self, column: int) -> Any | None:
 		data = self._data
 		return data
 
-	def onCopy(self) -> Optional[str]:
+	def onCopy(self) -> str | None:
+		if self.treeBuilder is None:
+			return None
 		return self.treeBuilder.onCopy(self._data)
 
-	def onCut(self) -> Optional[str]:
+	def onCut(self) -> str | None:
+		if self.treeBuilder is None:
+			return None
 		return self.treeBuilder.onCut(self._data)
 
-	def onPaste(self, data: str):
-		return self.treeBuilder.onPaste(self._data, data)
+	def onPaste(self, data: str) -> None:
+		if self.treeBuilder is None:
+			return
+		self.treeBuilder.onPaste(self._data, data)
 
 	def onDelete(self) -> None:
+		if self.treeBuilder is None:
+			return
 		self.treeBuilder.onDelete(self._data)
 
 	def onDoubleClick(self) -> bool:
 		"""
 		:return: True if a Action was taken, else False
 		"""
-		if self.treeBuilder.onDoubleClick is None:
+		if self.treeBuilder is None or self.treeBuilder.onDoubleClick is None:
 			return False
 		self.treeBuilder.onDoubleClick(self._data)
 		return True
 
-	def onContextMenu(self, column: int, pos: QPoint):
-		if self.treeBuilder.onContextMenu is None:
+	def onContextMenu(self, column: int, pos: QPoint) -> None:
+		if self.treeBuilder is None:
 			return
 		self.treeBuilder.onContextMenu(self._data, column)
 
@@ -545,8 +454,8 @@ class DataTreeItem(TreeItemBase['DataTreeItem']):
 					child.updateTree(selectionModel)
 			self.isLoaded = True
 
-	def updateTree(self, selectionModel: QItemSelectionModel):
-		if self.isUpdating:
+	def updateTree(self, selectionModel: QItemSelectionModel) -> None:
+		if self.isUpdating or self.treeBuilder is None:
 			return
 		self.isUpdating = True
 		try:
@@ -561,47 +470,8 @@ class DataTreeItem(TreeItemBase['DataTreeItem']):
 			oldChildIds = [ci._id for ci in self.childItems]
 			operations = getUpdateOperations(oldChildIds, childIds)
 
-			selfIndex: Optional[QModelIndex] = None
 			if operations:
-				selfIndex = self._getModelIndexOfSelf()
-
-			for operation in operations:
-				if operation.type == 0:  # DeleteOperation
-					operation: DeleteOperation
-					try:
-						self._treeModelRoot.beginRemoveRows(selfIndex, operation.first, operation.last)
-						for i in range(operation.first, operation.last + 1):
-							self.childItems[operation.first]._parentItem = None
-							del self.childItems[operation.first]
-					finally:
-						self._treeModelRoot.endRemoveRows()
-
-				elif operation.type == 1:  # InsertOperation
-					operation: InsertOperation
-					try:
-						self._treeModelRoot.beginInsertRows(selfIndex, operation.first, operation.last)
-						for i in range(operation.first, operation.last + 1):
-							child = DataTreeItem(children[i], treeBuilder, treeModelRoot=self._treeModelRoot)
-							self.childItems.insert(i, child)
-							child._parentItem = self
-					finally:
-						self._treeModelRoot.endInsertRows()
-
-				elif operation.type == 2:  # MoveOperation
-					operation: MoveOperation
-					try:
-						self._treeModelRoot.beginMoveRows(selfIndex, operation.first, operation.last, selfIndex, operation.dest)
-						pocketSize = (operation.last + 1) - operation.first
-						if operation.first > operation.dest:
-							for i in range(pocketSize):
-								val = self.childItems.pop(operation.first + i)
-								self.childItems.insert(operation.dest + i, val)
-						else:
-							for i in range(pocketSize):
-								val = self.childItems.pop(operation.first)
-								self.childItems.insert(operation.dest - 1, val)
-					finally:
-						self._treeModelRoot.endMoveRows()
+				self._applyOperationsToTree(children, operations, treeBuilder)
 
 			isSelected = treeBuilder.isSelected
 			for child, childItem in zip(children, self.childItems):
@@ -612,7 +482,7 @@ class DataTreeItem(TreeItemBase['DataTreeItem']):
 				childItem.treeBuilder = treeBuilder
 				childItem._id = childId
 				if isSelected(child):
-					selectionModel.setCurrentIndex(childItem._getModelIndexOfSelf(), QItemSelectionModel.ClearAndSelect)
+					selectionModel.setCurrentIndex(childItem._getModelIndexOfSelf(),QItemSelectionModel.ClearAndSelect,)
 
 			if children:
 				if not self._treeModelRoot._loadDeferred or self.isLoaded:
@@ -621,170 +491,55 @@ class DataTreeItem(TreeItemBase['DataTreeItem']):
 		finally:
 			self.isUpdating = False
 
-	def setTreeBuilderForRoot(self, treeBuilder: Union[DataTreeBuilderNode, DataListBuilder]) -> None:
+	def _applyOperationsToTree(self, children: Any, operations: list[Operation], treeBuilder: _DataListDefs) -> None:
+		treeModelRoot = self._treeModelRoot
+
+		selfIndex = self._getModelIndexOfSelf()
+		for operation in operations:
+			if operation.type == 0:  # DeleteOperation
+				operation = cast(DeleteOperation, operation)
+				try:
+					treeModelRoot.beginRemoveRows(selfIndex, operation.first, operation.last)
+					for i in range(operation.first, operation.last + 1):
+						self.childItems[operation.first]._parentItem = None
+						del self.childItems[operation.first]
+				finally:
+					treeModelRoot.endRemoveRows()
+
+			elif operation.type == 1:  # InsertOperation
+				operation = cast(InsertOperation, operation)
+				try:
+					treeModelRoot.beginInsertRows(selfIndex, operation.first, operation.last)
+					for i in range(operation.first, operation.last + 1):
+						child = DataTreeItem(children[i], treeBuilder, treeModelRoot=treeModelRoot)
+						self.childItems.insert(i, child)
+						child._parentItem = self
+				finally:
+					treeModelRoot.endInsertRows()
+
+			elif operation.type == 2:  # MoveOperation
+				operation = cast(MoveOperation, operation)
+				try:
+					treeModelRoot.beginMoveRows(selfIndex, operation.first, operation.last, selfIndex, operation.dest,)
+					pocketSize = (operation.last + 1) - operation.first
+					if operation.first > operation.dest:
+						for i in range(pocketSize):
+							val = self.childItems.pop(operation.first + i)
+							self.childItems.insert(operation.dest + i, val)
+					else:
+						for i in range(pocketSize):
+							val = self.childItems.pop(operation.first)
+							self.childItems.insert(operation.dest - 1, val)
+				finally:
+					self._treeModelRoot.endMoveRows()
+
+	def setTreeBuilderForRoot(self, treeBuilder: DataTreeBuilderNode) -> None:
 		self.treeBuilder = treeBuilder._dataListDefs
 		self._data = treeBuilder.getData()
 		self._id = treeBuilder.id_  # avoids possible exceptions with DataListBuilder
 
 
-class TreeItem(TreeItemBase['TreeItem']):
-	def __init__(self, treeBuilder: Optional[TreeBuilderABC], treeModelRoot: TreeModel):
-		super(TreeItem, self).__init__(treeModelRoot)
-		self.treeBuilder: Optional[TreeBuilderABC] = treeBuilder
-
-	@classmethod
-	def createEmpty(cls, treeModelRoot: TreeModel) -> TreeItem:
-		return TreeItem(None, treeModelRoot=treeModelRoot)
-
-	def columnCount(self) -> int:
-		if self.treeBuilder is None:
-			return 1
-		return self.treeBuilder.columnCount
-
-	def label(self, column: int) -> Optional[str]:
-		return self.treeBuilder.getLabel(column)
-
-	def icon(self, column: int) -> Optional[DecorationRole]:
-		return self.treeBuilder.getIcon(column)
-
-	def toolTip(self, column: int) -> Optional[str]:
-		return self.treeBuilder.getTip(column)
-
-	def getData(self, column: int) -> Optional[Any]:
-		try:
-			data = self.treeBuilder.getData()
-			return data
-		except IndexError as e:
-			print(e)
-			return None
-
-	def onCopy(self) -> Optional[str]:
-		return self.treeBuilder.onCopy()
-
-	def onCut(self) -> Optional[str]:
-		return self.treeBuilder.onCut()
-
-	def onPaste(self, data: str):
-		self.treeBuilder.onPaste(data)
-
-	def onDelete(self) -> None:
-		self.treeBuilder.onDelete()
-
-	def onDoubleClick(self) -> bool:
-		"""
-		:return: True if a Action was taken, else False
-		"""
-		self.treeBuilder.onDoubleClick()
-		return True  # TODO: return a meaningful value
-
-	def onContextMenu(self, column: int, pos: QPoint):
-		self.treeBuilder.onContextMenu(column)
-
-	def loadSubTree(self, selectionModel: QItemSelectionModel):
-		for child in self.childItems:
-			# forceUpdate = True
-			# if forceUpdate or childTreeBuilder.needsUpdate(child.treeBuilder):
-			child.updateTree(selectionModel)
-		self.isLoaded = True
-
-	def updateTree(self, selectionModel: QItemSelectionModel):
-		if self.isUpdating:
-			return
-		self.isUpdating = True
-		try:
-			treeBuilder = self.treeBuilder
-			i = -1
-			selfIndex: Optional[QModelIndex] = None
-			childrenBuilders = self.treeBuilder.children()
-			childrenBuildersIds = [tb.id_ for tb in childrenBuilders ]
-			oldChildBuildersIds = [ci.treeBuilder.id_ for ci in self.childItems ]
-			operations = getUpdateOperations(oldChildBuildersIds, childrenBuildersIds)
-
-			if operations:
-				selfIndex = self._getModelIndexOfSelf()
-
-			for operation in operations:
-				if isinstance(operation, DeleteOperation):
-					try:
-						self._treeModelRoot.beginRemoveRows(selfIndex, operation.first, operation.last)
-						for i in range(operation.first, operation.last + 1):
-							self.childItems[operation.first]._parentItem = None
-							del self.childItems[operation.first]
-					finally:
-						self._treeModelRoot.endRemoveRows()
-
-				elif isinstance(operation, InsertOperation):
-					try:
-						self._treeModelRoot.beginInsertRows(selfIndex, operation.first, operation.last)
-						for i in range(operation.first, operation.last + 1):
-							child = TreeItem(childrenBuilders[i], treeModelRoot=self._treeModelRoot)
-							self.childItems.insert(i, child)
-							child._parentItem = self
-							# child.treeBuilder.updateDeferred()
-					finally:
-						self._treeModelRoot.endInsertRows()
-
-				elif isinstance(operation, MoveOperation):
-					try:
-						self._treeModelRoot.beginMoveRows(selfIndex, operation.first, operation.last, selfIndex, operation.dest)
-						pocketSize = (operation.last + 1) - operation.first
-						if operation.first > operation.dest:
-							for i in range(pocketSize):
-								val = self.childItems.pop(operation.first + i)
-								self.childItems.insert(operation.dest + i, val)
-						else:
-							for i in range(pocketSize):
-								val = self.childItems.pop(operation.first)
-								self.childItems.insert(operation.dest - 1, val)
-					finally:
-						self._treeModelRoot.endMoveRows()
-
-			for childTreeBuilder, child in zip(childrenBuilders, self.childItems):
-				if childTreeBuilder.needsUpdate(child.treeBuilder):
-					child.treeBuilder = childTreeBuilder
-					# childTreeBuilder.updateDeferred()
-				if childTreeBuilder.isSelected():
-					selectionModel.setCurrentIndex(child._getModelIndexOfSelf(), QItemSelectionModel.ClearAndSelect)
-
-
-			# for childTreeBuilder in childrenBuilders:
-			# 	i += 1
-			#
-			# 	child: Optional[TreeItem] = None
-			# 	if i < len(self.childItems) and self.childItems[i].treeBuilder.id_ == childTreeBuilder.id_:
-			# 		child = self.childItems[i]
-			# 		childTreeBuilder.initDeferred(treeBuilder, child.treeBuilder)
-			# 		forceUpdate = False
-			# 	else:
-			# 		childTreeBuilder.initDeferred(treeBuilder, None)
-			# 		child = TreeItem(childTreeBuilder, treeModelRoot=self._treeModelRoot)
-			# 		if selfIndex is None:
-			# 			selfIndex = self._getModelIndexOfSelf()
-			# 		self.__insertChild(child, i, selfIndex)
-			# 		forceUpdate = True
-			# 	if forceUpdate or childTreeBuilder.needsUpdate(child.treeBuilder):
-			# 		child.treeBuilder = childTreeBuilder
-			# 		childTreeBuilder.updateDeferred()
-			#
-			# 	if childTreeBuilder.isSelected():
-			# 		selectionModel.setCurrentIndex(child._getModelIndexOfSelf(), QItemSelectionModel.ClearAndSelect)
-			#
-			# while i + 1 < len(self.childItems):
-			# 	if selfIndex is None:
-			# 		selfIndex = self._getModelIndexOfSelf()
-			# 	self.__removeChild(i + 1, selfIndex)
-
-			if not self._treeModelRoot._loadDeferred or self.isLoaded:
-				self.loadSubTree(selectionModel)
-
-		finally:
-			self.isUpdating = False
-
-	def setTreeBuilderForRoot(self, treeBuilder: TreeBuilderABC) -> None:
-		self.treeBuilder = treeBuilder
-
-
-_IGNORED_ROLES: set[Qt.EditRole] = {2, 4, 5, 6, 7, 8, 9, 10, 13}
+_IGNORED_ROLES: set[int] = {2, 4, 5, 6, 7, 8, 9, 10, 13}
 # Qt::DisplayRole	0	The key data to be rendered in the form of text. (QString)
 # Qt::DecorationRole	1	The data to be rendered as a decoration in the form of an icon. (QColor, QIcon or QPixmap)
 # Qt::EditRole	2	The data in a form suitable for editing in an editor. (QString)
@@ -793,7 +548,7 @@ _IGNORED_ROLES: set[Qt.EditRole] = {2, 4, 5, 6, 7, 8, 9, 10, 13}
 # Qt::WhatsThisRole	5	The data displayed for the item in "What's This?" mode. (QString)
 # Qt::SizeHintRole	13	The size hint for the item that will be supplied to views. (QSize)
 
-_ACCESSORS: dict[Qt.EditRole, str] = {
+_ACCESSORS: dict[int, str] = {
 	Qt.DisplayRole   : 'label',
 	Qt.DecorationRole: 'icon',
 	Qt.ToolTipRole   : 'toolTip',
@@ -806,12 +561,12 @@ _ACCESSORS: dict[Qt.EditRole, str] = {
 }
 
 
-class TreeModel(QAbstractItemModel):
+class DataTreeModel(QAbstractItemModel):
 	def __init__(self, selectionModel: QItemSelectionModel, parent=None):
-		super().__init__(parent)
-		self.rootItem = TreeItem.createEmpty(treeModelRoot=self)
+		super(DataTreeModel, self).__init__(parent)
+		self.rootItem: DataTreeItem = DataTreeItem.createEmpty(treeModelRoot=self)
 
-		self.headerItem: TreeItem = TreeItem.createEmpty(treeModelRoot=self)
+		self.headerItem: DataTreeItem = DataTreeItem.createEmpty(treeModelRoot=self)
 		self._loadDeferred: bool = True
 		self._lastSelectionModel: QItemSelectionModel = selectionModel
 	# self.updateTree(xmlData, treeBuilder)
@@ -825,14 +580,14 @@ class TreeModel(QAbstractItemModel):
 		return parentItem.columnCount()
 
 	@CrashReportWrapped
-	def data(self, index: QModelIndex, role: Qt.EditRole = Qt.DisplayRole) -> Optional[Any]:
+	def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any | None:
 		if not index.isValid():
 			return None
 
 		if role in _IGNORED_ROLES:
 			return None
 
-		item: TreeItem = index.internalPointer()
+		item: DataTreeItem = index.internalPointer()
 
 		accessor = _ACCESSORS.get(role)
 		if accessor is not None:
@@ -844,32 +599,31 @@ class TreeModel(QAbstractItemModel):
 	def canFetchMore(self, index: QModelIndex) -> bool:
 		if not index.isValid():
 			return False
-		item: TreeItem = index.internalPointer()
+		item: DataTreeItem = index.internalPointer()
 
 		return not item.isLoaded
-		return not (self._loadDeferred and item.isLoaded)
-		return (not item.isLoaded) or (not self._loadDeferred)
-		#return not self._loadDeferred
+		# return not (self._loadDeferred and item.isLoaded)
+		# return (not item.isLoaded) or (not self._loadDeferred)
 
 	@CrashReportWrapped
 	def fetchMore(self, index: QModelIndex):
-		item: TreeItem = index.internalPointer()
+		item: DataTreeItem = index.internalPointer()
 		item.loadSubTree(self._lastSelectionModel)
 
 	# @CrashReportWrapped
 	def flags(self, index: QModelIndex) -> Qt.ItemFlags:
 		if not index.isValid():
-			return Qt.NoItemFlags
+			return Qt.NoItemFlags  # type: ignore
 		return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
 	@CrashReportWrapped
-	def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole) -> Optional[Any]:
+	def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole) -> Any | None:
 		if orientation == Qt.Vertical:  # and role == Qt.DisplayRole:
 			return None
 		if self.headerItem.treeBuilder is None:
 			return None
 
-		item: TreeItem = self.headerItem
+		item: DataTreeItem = self.headerItem
 		# Qt::DisplayRole	0	The key data to be rendered in the form of text. (QString)
 		# Qt::DecorationRole	1	The data to be rendered as a decoration in the form of an icon. (QColor, QIcon or QPixmap)
 		# Qt::EditRole	2	The data in a form suitable for editing in an editor. (QString)
@@ -954,18 +708,19 @@ class TreeModel(QAbstractItemModel):
 
 		return parentItem.hasChildren()
 
-	def updateTree(self, treeBuilder: TreeBuilderABC, headerBuilder: Optional[TreeBuilderABC], selectionModel: QItemSelectionModel):
+	def updateTree(self, treeBuilder: DataTreeBuilderNode, headerBuilder: DataHeaderBuilder | None, selectionModel: QItemSelectionModel):
 		needsModelReset = False
 		if self.rootItem.treeBuilder is None:
 			needsModelReset = True
 		else:
-			if self.rootItem.treeBuilder.columnCount != treeBuilder.columnCount:
+			if self.rootItem.treeBuilder.columnCount != treeBuilder._dataListDefs.columnCount:
 				needsModelReset = True
 
 		if needsModelReset:
 			self.beginResetModel()
 		self.rootItem.setTreeBuilderForRoot(treeBuilder)
-		self.headerItem.treeBuilder = headerBuilder
+		if headerBuilder is not None:
+			self.headerItem.setTreeBuilderForRoot(headerBuilder)
 
 		self.rootItem.updateTree(selectionModel)
 		if not self.rootItem.isLoaded:
@@ -976,39 +731,6 @@ class TreeModel(QAbstractItemModel):
 			csi = selectionModel.currentIndex()
 			self.endResetModel()
 			selectionModel.setCurrentIndex(csi, QItemSelectionModel.ClearAndSelect)
-
-
-class DataTreeModel(TreeModel):
-	def __init__(self, selectionModel: QItemSelectionModel, parent=None):
-		super(TreeModel, self).__init__(parent)
-		self.rootItem = DataTreeItem.createEmpty(treeModelRoot=self)
-
-		self.headerItem: TreeItem = TreeItem.createEmpty(treeModelRoot=self)
-		self._loadDeferred: bool = True
-		self._lastSelectionModel: QItemSelectionModel = selectionModel
-
-	# def updateTree(self, treeBuilder: DataTreeBuilderRoot, headerBuilder: Optional[TreeBuilderABC], selectionModel: QItemSelectionModel):
-	# 	needsModelReset = False
-	# 	if self.rootItem.treeBuilder is None:
-	# 		needsModelReset = True
-	# 	else:
-	# 		if self.rootItem.treeBuilder.columnCount != treeBuilder.columnCount:
-	# 			needsModelReset = True
-	#
-	# 	if needsModelReset:
-	# 		self.beginResetModel()
-	# 	self.rootItem.setTreeBuilderForRoot(treeBuilder)
-	# 	self.headerItem.treeBuilder = headerBuilder
-	#
-	# 	self.rootItem.updateTree(selectionModel)
-	# 	if not self.rootItem.isLoaded:
-	# 		self.rootItem.loadSubTree(selectionModel)
-	# 	self._lastSelectionModel = selectionModel
-	#
-	# 	if needsModelReset:
-	# 		csi = selectionModel.currentIndex()
-	# 		self.endResetModel()
-	# 		selectionModel.setCurrentIndex(csi, QItemSelectionModel.ClearAndSelect)
 
 
 if __name__ == '__main__':
@@ -1026,13 +748,13 @@ if __name__ == '__main__':
 	# view.show()
 	# sys.exit(app.exec_())
 
-	def performOperations(oldList: list[_TT], operations: list[Operation]) -> list[_TT]:
+	def performOperations[TT](oldList: list[TT], operations: list[Operation]) -> list[TT]:
 		newList = oldList.copy()
 		for i, operation in enumerate(operations):
 			operation.apply(newList)
 		return newList
 
-	def _checkListUpdater(oldList: list[_TT], newList: list[_TT], title: str):
+	def _checkListUpdater[TT](oldList: list[TT], newList: list[TT], title: str):
 		print()
 		print(f"======== BEGIN: {title} ==========")
 		lu = ListUpdater(oldList, newList)

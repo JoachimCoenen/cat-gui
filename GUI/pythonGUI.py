@@ -20,15 +20,14 @@ from PyQt5.QtWidgets import QApplication, QDialog, QShortcut, QSizePolicy, QWidg
 from ._styles import Style, applyStyle, getStyles
 from .components import codeEditor
 from .components.Layouts import *
-from .components.Widgets import BuilderTreeView, CatButton, CatCheckBox, CatComboBox, CatElidedLabel, CatFramelessButton, CatGradiantButton, CatLabel, \
+from .components.Widgets import CatButton, CatCheckBox, CatComboBox, CatElidedLabel, CatFramelessButton, CatGradiantButton, CatLabel, \
 	CatMultiLineTextField, CatOverlay, CatPanel, CatProgressBar, CatRadioButton, CatScrollArea, CatSeparator, CatTextField, CatToolButton, CatToolbarSpacer, DataBuilderTreeView, \
 	DataTableModel, DataTableView, Int64SpinBox, Spoiler, Switch
 from .components.catTabBar import CatTabBar, TabOptions
 from .components.catWidgetMixins import CANT_AND_NO_OVERLAP, CORNERS, CatFramedWidgetMixin, CatScalableWidgetMixin, CatSizePolicyMixin, DEFAULT_PANEL_CORNER_RADIUS, \
 	KeySequenceLike, Margins, NO_MARGINS, NO_OVERLAP, Overlap, OverlapCharacteristics, RoundedCorners, getShortcutParent, setQWidgetShortcutBase
 from .components.renderArea import CatPainter, RenderArea, Vector
-from .components.treeBuilderABC import TreeBuilderABC
-from .components.treeBuilders import DataListBuilder, DataTreeBuilderNode
+from .components.treeBuilders import DataTreeBuilderNode, DataHeaderBuilder
 from .enums import *
 from .framelessWindow.catFramelessWindowMixin import CatFramelessWindowMixin
 from .utilities import connectOnlyOnce, connectSafe
@@ -2673,8 +2672,8 @@ class PythonGUI(CatScalableWidgetMixin):
 
 	def tree(
 			self,
-			treeBuilder: TreeBuilderABC[_TT],
-			headerBuilder: Optional[TreeBuilderABC[_T2]] = None,
+			treeBuilder: DataTreeBuilderNode[_TT],
+			headerBuilder: Optional[DataHeaderBuilder[_T2]] = None,
 			*,
 			headerVisible: bool | EllipsisType = ...,
 			loadDeferred: bool = True,
@@ -2690,10 +2689,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		if headerVisible is ...:
 			headerVisible = headerBuilder is not None
 
-		if isinstance(treeBuilder, (DataTreeBuilderNode, DataListBuilder)):
-			treeWidget: DataBuilderTreeView = self.customWidget(DataBuilderTreeView, headerHidden=not headerVisible, loadDeferred=loadDeferred, **kwargs)
-		else:
-			treeWidget: BuilderTreeView = self.customWidget(BuilderTreeView, headerHidden=not headerVisible, loadDeferred=loadDeferred, **kwargs)
+		treeWidget: DataBuilderTreeView = self.customWidget(DataBuilderTreeView, headerHidden=not headerVisible, loadDeferred=loadDeferred, **kwargs)
 
 		selectionModel = treeWidget.selectionModel()
 

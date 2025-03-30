@@ -21,7 +21,7 @@ from ...GUI.components.catWidgetMixins import CAN_BUT_NO_BORDER_OVERLAP, CORNERS
 	CatSizePolicyMixin, CatStyledWidgetMixin, ColorPalette, OverlapCharacteristics, PaintEventDebug, ShortcutMixin, \
 	UndoBlockableMixin, centerOfRect, getBorderPath, palettes, paintFramedWidgetBkg, paintIcon, paintText, \
 	drawLayoutBorder, paintSpoilerTriangle, getBorderPen, RoundedCorners, Overlap, NO_OVERLAP
-from ...GUI.components.treeModel import DataTreeModel, TreeItemBase, TreeModel
+from ...GUI.components.treeModel import DataTreeModel, DataTreeItem
 from ...utils.utils import CrashReportWrapped
 
 # global variables for debugging:
@@ -2425,8 +2425,8 @@ class HTMLDelegate(QStyledItemDelegate):
 		return displayColCache
 
 	@staticmethod
-	def _updateStaticText(staticText: QStaticText, treeItem: TreeItemBase, col: int) -> None:
-		staticText.setText(treeItem.label(col))
+	def _updateStaticText(staticText: QStaticText, treeItem: DataTreeItem, col: int) -> None:
+		staticText.setText(treeItem.label(col) or "")
 		staticText.setTextFormat(Qt.RichText)
 		txtOption = QTextOption()
 		shouldWrap = False  # option.features & QStyleOptionViewItem.WrapText == QStyleOptionViewItem.WrapText
@@ -2510,7 +2510,7 @@ class HTMLDelegate(QStyledItemDelegate):
 		return QSize(width + 4, height + 2)
 
 
-class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollAreaMixin, QTreeView, CatStyledWidgetMixin):
+class DataBuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollAreaMixin, QTreeView, CatStyledWidgetMixin):
 	def __init__(self, parent: QObject | None = None) -> None:
 		super().__init__(parent)
 		self._roundedCorners: RoundedCorners = CORNERS.NONE
@@ -2541,13 +2541,16 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 
 	dataChanged = pyqtSignal()
 
-	def _makeTreeModel(self) -> TreeModel:
-		return TreeModel(self.selectionModel(), self)
+	def _makeTreeModel(self) -> DataTreeModel:
+		return DataTreeModel(self.selectionModel(), self)
+
+	def model(self) -> DataTreeModel:
+		return cast(DataTreeModel, super().model())
 
 	@CrashReportWrapped
 	@PaintEventDebug
 	def paintEvent(self, event: QPaintEvent) -> None:
-		super(BuilderTreeView, self).paintEvent(event)
+		super(DataBuilderTreeView, self).paintEvent(event)
 		self.paintFrameOnWidget(event, self.viewport())
 
 	def getBorderBrushes(self, rect: QRect) -> tuple[QBrush, QBrush, QBrush]:
@@ -2584,7 +2587,7 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 
 	@CrashReportWrapped
 	def onPaste(self) -> None:
-		treeItem: TreeItemBase | None = None
+		treeItem: DataTreeItem | None = None
 
 		sm: QItemSelectionModel = self.selectionModel()
 		index = sm.currentIndex()
@@ -2654,7 +2657,7 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 				if self.onDoubleClick(self.currentIndex()):
 					event.accept()
 					return True
-		return super(BuilderTreeView, self).event(event)
+		return super(DataBuilderTreeView, self).event(event)
 
 	@CrashReportWrapped
 	def mousePressEvent(self, event: QMouseEvent):
@@ -2676,12 +2679,7 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 	def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
 		index: QModelIndex = self.indexAt(event.pos())
 		self.onDoubleClick(index)
-		super(BuilderTreeView, self).mouseDoubleClickEvent(event)
-
-
-class DataBuilderTreeView(BuilderTreeView):
-	def _makeTreeModel(self) -> TreeModel:
-		return DataTreeModel(self.selectionModel(), self)
+		super(DataBuilderTreeView, self).mouseDoubleClickEvent(event)
 
 
 def distanceToRectSquared(pos: QPoint, rect: QRect) -> int:
@@ -2800,7 +2798,6 @@ __all__ = [
 	'DataTableModel',
 	'DataTableView',
 	'HTMLDelegate',
-	'BuilderTreeView',
 	'DataBuilderTreeView',
 	'distanceToRectSquared',
 	'findClosestScreen',
