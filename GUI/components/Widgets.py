@@ -205,16 +205,6 @@ class CatOverlay(QWidget):
 	def __init__(self, parent: QWidget | None = None) -> None:
 		super(CatOverlay, self).__init__(parent)
 
-	@classmethod
-	def addDialogBlur(cls, target: QWidget) -> QGraphicsEffect:
-		if target.graphicsEffect() is None:
-			ef = QGraphicsBlurEffect(target)
-			ef.setBlurHints(QGraphicsBlurEffect.QualityHint)
-			ef.setBlurRadius(5)
-			target.setGraphicsEffect(ef)
-			target.graphicsEffect().setEnabled(False)
-		return target.graphicsEffect()
-
 	@CrashReportWrapped
 	@PaintEventDebug
 	def paintEvent(self, event: QPaintEvent) -> None:
