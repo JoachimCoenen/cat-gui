@@ -464,7 +464,7 @@ def innerSemiTopologicalSort(start: Iterable[KeyNNode], destinationsById: dict[_
 	return L
 
 
-def innerSemiTopologicalSort3(start: Iterable[KeyNNode], destinationsById: dict[_TK, list[KeyNNode]], incomingCnt: dict[_TK, int]) -> list[KeyNNode]:
+def innerSemiTopologicalSort3(start: Iterable[KeyNNode], destinationsById: dict[_TK, list[KeyNNode]], incomingCnt: dict[_TK, int], allNodes: list[KeyNNode]) -> list[KeyNNode]:
 	"""
 	TopologicalSort that allows circular references.
 	(same as innerSemiTopologicalSort(..), but also returns the keys.)
@@ -473,35 +473,51 @@ def innerSemiTopologicalSort3(start: Iterable[KeyNNode], destinationsById: dict[
 	:param destinationsById:
 	:return:
 	"""
+	byKey: dict[_TK, KeyNNode] = {node[0]: node for node in allNodes}
 
 	L: list[KeyNNode] = []  # Empty list that will contain the sorted elements
 	S: deque[KeyNNode] = deque()  # Set of all nodes with no incoming edge
 	S.extend(start)
 	seenNodes = {k for k, _ in start}
 
+	mss: dict[_TK, KeyNNode] = {}
 	ms: list[KeyNNode] = []
 	while S:
-		srcKey, src = S.pop()
-		L.append((srcKey, src))
+		while S:
+			srcKey, src = S.pop()
+			L.append((srcKey, src))
+			mss.pop(srcKey, None)
+			byKey.pop(srcKey, None)
 
-		# for each node m with an edge e from n to m do
-		destinations = destinationsById[srcKey]
-		dst: _TNode
-		for dstKey, dst in destinations:
-			# del out[dstKey] not necessary, because we will never look at this again anyway.
-			inCnt = incomingCnt[dstKey] = incomingCnt[dstKey] - 1
+			# for each node m with an edge e from n to m do
+			destinations = destinationsById[srcKey]
+			dst: _TNode
+			for dstKey, dst in destinations:
+				# del out[dstKey] not necessary, because we will never look at this again anyway.
+				inCnt = incomingCnt[dstKey] = incomingCnt[dstKey] - 1
 
-			# if m has no other incoming edges then
-			if dstKey not in seenNodes:
-				if inCnt == 0:
-					seenNodes.add(dstKey)  # ?? seems a good idea, but it's untested
-					S.append((dstKey, dst))
-				else:
-					ms.append((dstKey, dst))
-		if not S:
-			seenNodes.update(k for k, _ in ms)
-			S.extend(ms)
-		ms.clear()
+				# if m has no other incoming edges then
+				if dstKey not in seenNodes:
+					if inCnt == 0:
+						seenNodes.add(dstKey)  # ?? seems a good idea, but it's untested
+						S.append((dstKey, dst))
+					else:
+						ms.append((dstKey, dst))
+			if not S:
+				seenNodes.update(k for k, _ in ms)
+				S.extend(ms)
+			else:
+				mss.update({node[0]: node for node in ms})
+			ms.clear()
+
+		if byKey:
+			S.extend(_getStartNodes(list(byKey.values()), destinationsById))
+			#S.append(mss.popitem()[1])
+		# for key, node in mss.values():
+		# 	if cnt > 0 and key not in seenNodes:
+		# 		seenNodes.add(key)
+		# 		node = byKey[key]
+		# 		S.append(node)
 
 	return L
 
@@ -638,7 +654,7 @@ def collectAndSemiTopolSortAllNodes3(start: Iterable[KeyNNode], getDestinations:
 	"""
 	allNodes, destinationsById = collectAllNodes3(start, getDestinations)
 	incomingCnt = _countIncomingEdges(destinationsById)
-	allNodes = innerSemiTopologicalSort3(start, destinationsById, incomingCnt)
+	allNodes = innerSemiTopologicalSort3(start, destinationsById, incomingCnt, allNodes)
 	return allNodes
 
 
