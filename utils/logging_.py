@@ -4,7 +4,7 @@ from datetime import datetime
 from functools import wraps
 from typing import Any, ContextManager, Callable, Protocol
 
-from ..utils import format_full_exc, formatters
+from ..utils import format_full_exc, format_exc_no_traceback, formatters
 from ..utils.formatters import formatFuncCall, formatVal, indentMultilineStr, PW, WriterObjectABC
 
 
@@ -200,7 +200,7 @@ def formatException(e: Exception, *, includeTraceback: bool) -> str:
 	if includeTraceback:
 		return format_full_exc(e)
 	else:
-		return f"{type(e).__name__}: {str(e)}"
+		return format_exc_no_traceback(e)
 
 
 class LoggingFunction(Protocol):
