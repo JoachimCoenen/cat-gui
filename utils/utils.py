@@ -448,40 +448,6 @@ if True:
 		)
 
 
-	def safeOpen(
-			file: Union[str, bytes, int, os.PathLike],
-			mode: str = 'r',
-			buffering: int = -1,
-			encoding: Optional[str] = None,
-			errors: Optional[str] = None,
-			newline: Optional[str] = None,
-			closefd: bool = True,
-			opener: Optional[Callable[[str, int], int]] = None,
-			*,
-			onError: Callable[[OSError], None],
-	) -> Maybe[IO[Any]]:
-		"""
-		Open file and return a stream.  Raise OSError upon failure.
-		see: open
-		requires a writing mode ( w, x, a or + ) to be set (e.g. mode='wb').
-		"""
-		try:
-			opened = open(
-				file=file,
-				mode=mode,
-				buffering=buffering,
-				encoding=encoding,
-				errors=errors,
-				newline=newline,
-				closefd=closefd,
-				opener=opener
-			)
-		except OSError as e:
-			onError(e)
-			return Maybe.EMPTY
-		return Maybe[IO[Any]](opened)
-
-
 	def getExePath() -> str:
 		if getattr(sys, 'frozen', False):
 			application_path = sys.executable
@@ -524,88 +490,6 @@ if True:
 
 # Maybe, selectNotNone(...), ...:
 if True:
-	class Maybe[TT]:
-		""" a Maybe monad """
-
-		def __init__(self, aValue: Optional[TT]):
-			self._value: Optional[TT] = aValue
-
-		def get(self) -> Optional[TT]:
-			return self._value
-
-		def orElse(self, default: _TD) -> TT | _TD:
-			return self._value if self._value is not None else default
-
-		_EMPTY_DICT = {}
-
-		def call(self, func: str, *args, kwargs: dict[str, Any] = _EMPTY_DICT, returns: Type[_TR] = Any) -> Maybe[_TR]:
-			if self._value is None:
-				return self.EMPTY
-			else:
-				return Maybe(getattr(self._value, func)(*args, **kwargs))
-
-		def getattr(self, attr: str, returns: Type[_TR] = Any) -> Maybe[_TR]:
-			if self._value is None:
-				return self.EMPTY
-			else:
-				return Maybe(getattr(self._value, attr))
-
-		@overload
-		def map[**P, R](self, func: Callable[Concatenate[TT, P], R | None], *args: P.args, **kwargs: P.kwargs) -> Maybe[R]: ...
-		@overload
-		def map[**P, R](self, func: Callable[Concatenate[TT, P], R], *args: P.args, **kwargs: P.kwargs) -> Maybe[R]: ...
-
-		def map[**P, R](self, func: Callable[Concatenate[TT, P], R | None], *args: P.args, **kwargs: P.kwargs) -> Maybe[R]:
-			"""
-			same as Maybe.apply(...)
-			:param func:
-			:param args:
-			:param kwargs:
-			:return:
-			"""
-			if self._value is None:
-				return self.EMPTY
-			else:
-				return Maybe(func(self._value, *args, **kwargs))
-
-		apply = map
-
-		def flatmap[**P, R](self, func: Callable[Concatenate[TT, P], Maybe[R]], *args: P.args, **kwargs: P.kwargs) -> Maybe[R]:
-			if self._value is None:
-				return self.EMPTY
-			else:
-				return func(self._value, *args, **kwargs)
-
-		def recursive[**P](self, func: Callable[Concatenate[TT, P], Optional[TT]], *args: P.args, **kwargs: P.kwargs) -> Maybe[TT]:
-			if self._value is None:
-				return self.EMPTY
-			else:
-				last: TT = self._value
-				while True:
-					new = func(last, *args, **kwargs)
-					if new is None:
-						return Maybe(last)
-					last = new
-
-		def __bool__(self) -> bool:
-			return self._value is not None
-
-		def __enter__(self) -> Maybe[TT]:
-			if self._value is not None:
-				return Maybe(self.get().__enter__())
-			else:
-				return self.EMPTY
-			#return  self..call('__enter__')
-
-		def __exit__(self, exc_type, exc_val, exc_tb):
-			if self._value is not None:
-				return self._value.__exit__(exc_type, exc_val, exc_tb)
-
-		EMPTY: ClassVar[Maybe[Any]]
-
-	Maybe.EMPTY = Maybe(None)
-
-
 	@overload
 	def _selectNotX[T, X](arg: T | X, arg2: T | X, *, x: X) -> T | X: ...
 	@overload
@@ -837,14 +721,12 @@ __all__ = [
 	'ENCODINGS',
 
 	'openOrCreate',
-	'safeOpen',
 	'getExePath',
 	'showInFileSystem',
 
 	'INVALID_PATH_CHARS',
 	'sanitizeFileName',
 
-	'Maybe',
 	'selectNotNothing',
 	'selectNotNone',
 	'selectNotNones',
