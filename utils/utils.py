@@ -10,8 +10,9 @@ import weakref
 from collections import defaultdict
 from enum import Enum
 from functools import wraps
+from types import TracebackType, FrameType
 from typing import Any, Callable, ContextManager, Generic, IO, Iterable, Iterator, Optional, TYPE_CHECKING, Tuple, Type, \
-	TypeVar, Union, overload, ClassVar, Concatenate
+	TypeVar, Union, overload, ClassVar, Concatenate, cast
 from warnings import warn
 
 try:
@@ -633,22 +634,22 @@ if True:
 	# COPIED from https://stackoverflow.com/a/13210518/8091657
 	# and added some type annotations:
 
-	class FauxTb(object):
-		def __init__(self, tb_frame, tb_lineno, tb_next, tb_lasti):
-			self.tb_frame = tb_frame
-			self.tb_lineno = tb_lineno
-			self.tb_next = tb_next
-			self.tb_lasti = tb_lasti
+	class FauxTb:
+		def __init__(self, tb_frame: FrameType, tb_lineno: int, tb_next: TracebackType | FauxTb | None, tb_lasti: int):
+			self.tb_frame: FrameType = tb_frame
+			self.tb_lineno: int = tb_lineno
+			self.tb_next: TracebackType | FauxTb | None = tb_next
+			self.tb_lasti: int = tb_lasti
 
 
-	def current_stack(skip=0):
+	def current_stack(skip: int = 0) -> list[tuple[FrameType, int]]:
 		f = None  # just to make the type checker happy
 		try:
 			1/0
 		except ZeroDivisionError:
-			f = sys.exc_info()[2].tb_frame
+			f = sys.exc_info()[2].tb_frame  # type: ignore
 		for i in range(skip + 2):
-			f = f.f_back
+			f = f.f_back  # type: ignore
 		lst = []
 		while f is not None:
 			lst.append((f, f.f_lineno))
@@ -656,34 +657,42 @@ if True:
 		return lst
 
 
-	def extend_traceback(tb, stack):
+	def extend_traceback(tb: TracebackType | None, stack: list[tuple[FrameType, int]]) -> TracebackType | None:
 		"""Extend traceback with stack info."""
-		head = tb
+		head: TracebackType | FauxTb | None = tb
 		for tb_frame, tb_lineno in stack:
 			head = FauxTb(tb_frame, tb_lineno, head, -1)
-		return head
+		return cast(TracebackType | None, head)
+	# END COPIED from
 
 
-	TBaseException = TypeVar('TBaseException', bound=BaseException)
-
-
-	def full_exc_info(e: Optional[TBaseException] = None) -> Tuple[Type[TBaseException], TBaseException, FauxTb]:
+	def exc_info[E: BaseException](e: E | None = None) -> tuple[Type[E], E, TracebackType | None]:
 		"""Like sys.exc_info, but includes the full traceback."""
 		if e is not None:
-			t, v, tb = type(e), e, e.__traceback__
+			return type(e), e, e.__traceback__
 		else:
-			t, v, tb = sys.exc_info()
+			return sys.exc_info()  # type: ignore
+
+
+	def full_exc_info[E: BaseException](e: E | None = None) -> tuple[Type[E], E, TracebackType | None]:
+		"""Like sys.exc_info, but includes the full traceback."""
+		t, v, tb = exc_info(e)
 		full_tb = extend_traceback(tb, current_stack(1))
 		return t, v, full_tb
 	# END COPIED from
 
 
-	def format_full_exc(e: Optional[TBaseException] = None, *, indentLvl: int = 0) -> str:
+	def format_full_exc(e: BaseException | None = None) -> str:
 		from traceback import format_exception
-		from ..utils.formatters import indentMultilineStr
 		exc, value, tb = full_exc_info(e)
-		text = ''.join(format_exception(exc, value, tb))
-		return indentMultilineStr(text, indent=indentLvl).s
+		return ''.join(format_exception(exc, value, tb))
+
+
+	def format_exc_no_traceback(e: BaseException | None = None) -> str:
+		from traceback import format_exception_only
+		exc, value, tb = exc_info(e)
+		return ''.join(format_exception_only(exc, value))
+
 
 __all__ = [
 	'onCrash',
@@ -737,6 +746,8 @@ __all__ = [
 	'mix',
 	'kleinSum',
 
+	'exc_info',
 	'full_exc_info',
 	'format_full_exc',
+	'format_exc_no_traceback',
 ]

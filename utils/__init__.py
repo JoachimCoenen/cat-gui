@@ -13,7 +13,7 @@ from .utils import FILE_BROWSER_COMMAND, FILE_BROWSER_DISPLAY_NAME
 from .utils import ENCODINGS
 from .utils import openOrCreate, getExePath, showInFileSystem
 from .utils import findall, flatmap, outerZip, mix, kleinSum
-from .utils import full_exc_info, format_full_exc
+from .utils import exc_info, full_exc_info, format_full_exc, format_exc_no_traceback
 
 from .strings import HTMLStr, escapeForXml, escapeForXmlTextContent, escapeForXmlAttribute, unescapeFromXml, unescapeFromXmlAttribute
 
