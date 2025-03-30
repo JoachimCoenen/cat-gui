@@ -80,14 +80,14 @@ class AutoCompletionTree:
 		newChildrenStack.push(self._children)
 		prefixStack.push(prefix)
 		while childIterators:
-			nextTree = next(childIterators.peek(), None)
-			if nextTree is None:
+			nextTreeTpl = next(childIterators.peek(), None)
+			if nextTreeTpl is None:
 				childIterators.pop()
 				newChildrenStack.pop()
 				prefixStack.pop()
 			else:
 				prefix = prefixStack.peek()
-				name, nextTree = nextTree
+				name, nextTree = nextTreeTpl
 				nextTreeI = AutoCompletionTree(prefix + name, nextTree.separator)
 				nextTreeI.separator = nextTree.separator
 				nextTreeI.nextSeparators = nextTree.nextSeparators
@@ -142,30 +142,8 @@ def buildSimpleAutoCompletionTree(allChoices: Iterable[str], separators: tuple[s
 	return result
 
 
-def choicesFromAutoCompletionTree_WRONG(tree: AutoCompletionTree, text: str) -> list[str]:
-	remainder: str = text
-	word: str = text
-
-	currentTree: Optional[AutoCompletionTree] = None
-	nextTree: Optional[AutoCompletionTree] = tree
-	while nextTree is not None:
-		currentTree = nextTree
-		nSep = currentTree.separator
-		word, sep, remainder = remainder.partition(nSep)
-		if sep:
-			nextTree = currentTree.get(word)
-
-	lastWord = word
-	if not lastWord:
-		return [word for word in currentTree.memberNames()]
-	else:
-		lastWordLower = lastWord.lower()
-		return [word for word in currentTree.memberNames() if word.lower().startswith(lastWordLower)]
-
-
 def choicesFromAutoCompletionTree(tree: AutoCompletionTree, text: str, addSeparator: bool = True, *, includePrefixes: bool = True) -> list[str]:
 	result: list[str] = []
-	currentTrees: list[tuple[AutoCompletionTree, str]] = []
 	nextTrees: list[tuple[AutoCompletionTree, str]] = [(tree, text)]
 	while nextTrees:
 		currentTrees = nextTrees
