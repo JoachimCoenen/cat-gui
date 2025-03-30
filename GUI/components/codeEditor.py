@@ -958,6 +958,18 @@ class CodeEditor(
 	def isCaretLineVisible(self) -> bool:
 		return self.SendScintilla(QsciScintilla.SCI_GETCARETLINEVISIBLE)
 
+	def extraAscent(self) -> int:
+		return self.SendScintilla(QsciScintilla.SCI_GETEXTRAASCENT)
+
+	def extraDescent(self) -> int:
+		return self.SendScintilla(QsciScintilla.SCI_GETEXTRADESCENT)
+
+	def setExtraAscent(self, ascent: int) -> None:
+		self.SendScintilla(QsciScintilla.SCI_SETEXTRAASCENT, ascent)
+
+	def setExtraDescent(self, descent: int) -> None:
+		self.SendScintilla(QsciScintilla.SCI_SETEXTRADESCENT, descent)
+
 	if TYPE_CHECKING:
 		def lexer(self) -> QsciLexer:
 			return super(CodeEditor, self).lexer()
@@ -991,6 +1003,9 @@ def _innerAdvancedCodeField(
 	if lexer is not None:
 		lexer.setFont(font)
 		lexer.setDefaultFont(font)
+
+	codeField.setExtraAscent(int(font.pointSizeF() * 0.1))
+	codeField.setExtraDescent(int(font.pointSizeF() * 0.1))
 
 	textChanged = codeField.text() != code and code is not None
 	isModifiedInput = codeField == gui.modifiedInput[0]
