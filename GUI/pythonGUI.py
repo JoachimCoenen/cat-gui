@@ -192,10 +192,29 @@ class SeamlessQStackedWidget(QtWidgets.QStackedWidget, CatFramedWidgetMixin, Cat
 			item = self.widget(i)
 			finalizeBorders(item, overlap, corners)
 
+	def updateSizePolicyForWidget(self, wd: QWidget):
+		spt = self._recalculateSizePolicy()
+		if spt is not None:
+			sp = wd.sizePolicy()
+			sp.setHorizontalPolicy(spt.hPolicy)
+			sp.setVerticalPolicy(spt.vPolicy)
+			wd.setSizePolicy(sp)
+
+	def _recalculateSizePolicy(self) -> Optional[SizePolicyTuple]:
+		minCount = 1 if self.count() > 0 else 0
+		cCnt = self.count()
+		rCnt = minCount
+		items = [self.widget(i).layout() for i in range(self.count())]
+
+		def itemAtPosition(row: int, col: int):
+			return items[row]
+
+		return calculateCombinedSizePolicy(items, rCnt, cCnt, itemAtPosition)
+
 
 class StackedControl(LayoutBase[SeamlessQStackedWidget]):
 	def __init__(self, gui: PythonGUI, stackedWidget: SeamlessQStackedWidget, selectedView: Optional[str], *, forWidget: Optional[QWidget] = None):
-		super().__init__(gui, stackedWidget, forWidget=forWidget)
+		super().__init__(gui, stackedWidget, forWidget=stackedWidget)
 		self._selectedViewId: str = self._getIdFromViewIndex(self._selectedIndexFromWidget())
 		self._selectedViewRequest: Optional[str] = selectedView
 
@@ -407,10 +426,34 @@ class SeamlessQSplitter(QtWidgets.QSplitter, CatFramedWidgetMixin, CatSizePolicy
 				overlap, corners = calculateBorderInfoSimple(isL, isR, isT, isB, olp, crn, (0, 0))
 				finalizeBorders(item, overlap, corners)
 
+	def updateSizePolicyForWidget(self, wd: QWidget):
+		spt = self._recalculateSizePolicy()
+		if spt is not None:
+			sp = wd.sizePolicy()
+			sp.setHorizontalPolicy(spt.hPolicy)
+			sp.setVerticalPolicy(spt.vPolicy)
+			wd.setSizePolicy(sp)
+
+	def _recalculateSizePolicy(self) -> Optional[SizePolicyTuple]:
+		orientation = self.orientation()
+		minCount = 1 if self.count() > 0 else 0
+		cCnt = self.count() if orientation == Qt.Horizontal else minCount
+		rCnt = self.count() if orientation == Qt.Vertical else minCount
+		items = [self.widget(i).layout() for i in range(self.count())]
+
+		if orientation == Qt.Vertical:
+			def itemAtPosition(row: int, col: int):
+				return items[row]
+		else:
+			def itemAtPosition(row: int, col: int):
+				return items[col]
+
+		return calculateCombinedSizePolicy(items, rCnt, cCnt, itemAtPosition)
+
 
 class SplitterControl(LayoutBase[SeamlessQSplitter]):
 	def __init__(self, gui: PythonGUI, splitterWidget: SeamlessQSplitter, *, forWidget: Optional[QWidget] = None):
-		super().__init__(gui, splitterWidget, forWidget=forWidget)
+		super().__init__(gui, splitterWidget, forWidget=splitterWidget)
 
 	def addItem(self, ItemType, initArgs: DictOrTuple = (), onInit: Callable[[_TQWidget], None] = None, isPrefix: bool = False):
 		raise NotImplementedError("")

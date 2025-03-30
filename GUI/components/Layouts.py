@@ -304,12 +304,55 @@ class Layout(LayoutBase[QLayout], ABC):
 		return item
 
 
-class DirectionalLayout(Layout, ABC):
-	QLayoutType = QGridLayout
+class QSizePolicyLayout(QGridLayout):
+	"""a QGridLayout that can re-calculate its SizePolicy"""
 
-	def __init__(self, gui: PythonGUI, qLayout: QGridLayout, preventVStretch: bool, preventHStretch: bool, deferBorderFinalization: bool, *, forWidget: Optional[QWidget] = None):
+	def __init__(self, parent: QWidget | None = None):
+		super().__init__(parent)
+		self._canGrowRegardlessV: bool = False  # dan grow regardless of contents' SizePolicy
+		self._canGrowRegardlessH: bool = False  # dan grow regardless of contents' SizePolicy
+
+	def canGrowRegardlessV(self) -> bool:
+		return self._canGrowRegardlessV
+
+	def setCanGrowRegardlessV(self, value: bool) -> None:
+		self._canGrowRegardlessV = value
+
+	def canGrowRegardlessH(self) -> bool:
+		return self._canGrowRegardlessH
+
+	def setCanGrowRegardlessH(self, value: bool) -> None:
+		self._canGrowRegardlessH = value
+
+	def updateSizePolicyForWidget(self, wd: QWidget):
+		spt = self._recalculateSizePolicy()
+		if spt is not None:
+			sp = wd.sizePolicy()
+			sp.setHorizontalPolicy(spt.hPolicy)
+			sp.setVerticalPolicy(spt.vPolicy)
+			wd.setSizePolicy(sp)
+
+	def _recalculateSizePolicy(self) -> Optional[SizePolicyTuple]:
+		cCnt = self.columnCount()
+		rCnt = self.rowCount()
+		items = [self.itemAt(i) for i in range(self.count())]
+		hPolicy, vPolicy = calculateCombinedSizePolicy(items, rCnt, cCnt, self.itemAtPosition)
+
+		if self.canGrowRegardlessH() and hPolicy | QSizePolicy.IgnoreFlag != 0:
+			hPolicy |= QSizePolicy.GrowFlag  # type: ignore
+
+		if self.canGrowRegardlessV() and vPolicy | QSizePolicy.IgnoreFlag != 0:
+			vPolicy |= QSizePolicy.GrowFlag  # type: ignore
+
+		return SizePolicyTuple(hPolicy, vPolicy)
+
+
+class DirectionalLayout(Layout, ABC):
+	QLayoutType = QSizePolicyLayout
+
+	def __init__(self, gui: PythonGUI, qLayout: QSizePolicyLayout, preventVStretch: bool, preventHStretch: bool, deferBorderFinalization: bool, *, forWidget: Optional[QWidget] = None):
 		super(DirectionalLayout, self).__init__(gui, qLayout, forWidget=forWidget)
-		self._qLayout: QGridLayout = qLayout  # just for the typeChecker
+		self._qLayout: QSizePolicyLayout = qLayout  # just for the typeChecker
 		self._preventVStretch: bool = preventVStretch
 		self._preventHStretch: bool = preventHStretch
 		self._deferBorderFinalization: bool = deferBorderFinalization
@@ -331,12 +374,14 @@ class DirectionalLayout(Layout, ABC):
 
 	def __exit__(self, exc_type, exc_value, traceback):
 		try:
+			self._qLayout.setCanGrowRegardlessH(self._preventHStretch)
 			if self._preventHStretch:
 				# add spacer to the right:
 				self._addPositionedItem(QSpacerItem, 0, self._columnCount, initArgs=(0, 0))
 				self._column += 1
 				self._qLayout.setColumnStretch(self._columnCount, 1)
 
+			self._qLayout.setCanGrowRegardlessV(self._preventVStretch)
 			if self._preventVStretch:
 				# add spacer at the end, so widgets are aligned at the top:
 				self._addPositionedItem(QSpacerItem, self._rowCount, 0, initArgs=(0, 0))
@@ -405,23 +450,23 @@ class DirectionalLayout(Layout, ABC):
 		self._qLayout.setRowStretch(self._row+1, stretch)
 
 
-class QSingleColumnLayout(QGridLayout):
+class QSingleColumnLayout(QSizePolicyLayout):
 	pass
 
 
-class QDoubleColumnLayout(QGridLayout):
+class QDoubleColumnLayout(QSizePolicyLayout):
 	pass
 
 
-class QTableLayout(QGridLayout):
+class QTableLayout(QSizePolicyLayout):
 	pass
 
 
-class QSingleRowLayout(QGridLayout):
+class QSingleRowLayout(QSizePolicyLayout):
 	pass
 
 
-class QDoubleRowLayout(QGridLayout):
+class QDoubleRowLayout(QSizePolicyLayout):
 	pass
 
 
@@ -691,7 +736,6 @@ class SizePolicyTuple(NamedTuple):
 	vPolicy: QSizePolicy.Policy
 
 
-_NONE_SIZE_POLICY_TUPLE = SizePolicyTuple(cast(QSizePolicy.Policy, None), cast(QSizePolicy.Policy, None))
 _EMPTY_TUPLE = ()
 
 
@@ -700,7 +744,7 @@ class ItemPosition(NamedTuple):
 	col: slice
 
 
-class SeamlessQGridLayout(QGridLayout, CatFramedWidgetMixin):
+class SeamlessQGridLayout(QSizePolicyLayout, CatFramedWidgetMixin):
 	def __init__(self, parent: QWidget = None):
 		super().__init__(parent)
 		self.setContentsMargins(0, 0, 0, 0)
@@ -870,53 +914,38 @@ class SeamlessQGridLayout(QGridLayout, CatFramedWidgetMixin):
 
 		return framedItemsAtCol, framedItemsAtRow, isLTRB
 
-	def updateSizePolicyForWidget(self, wd: QWidget):
-		spt = self._recalculateSizePolicy()
-		if spt is not None:
-			sp = wd.sizePolicy()
-			sp.setHorizontalPolicy(spt.hPolicy)
-			sp.setVerticalPolicy(spt.vPolicy)
-			wd.setSizePolicy(sp)
 
-	def _recalculateSizePolicy(self) -> Optional[SizePolicyTuple]:
-		"""
-		:return: tuple[horizontalPolicy, verticalPolicy]
-		"""
-		cCnt = self.columnCount()
-		rCnt = self.rowCount()
+def calculateCombinedSizePolicy(items: list[QLayoutItem], rCnt: int, cCnt: int, itemAtPosition: Callable[[int, int], QLayoutItem | None]) -> SizePolicyTuple:
+	policyForItem: dict[int, tuple[SizePolicyTuple, Any]] = {}
 
-		policyForItem: dict[int, tuple[SizePolicyTuple, Any]] = {}
+	for item in items:
+		spt: SizePolicyTuple
+		if (layout := item.layout()) is not None:
+			spt = layout._recalculateSizePolicy() if hasattr(layout, '_recalculateSizePolicy') else None
+			if spt is None:
+				# not seamless
+				spt = SizePolicyTuple(QSizePolicy.Preferred, QSizePolicy.Preferred)
+		else:
+			sp = (item.spacerItem() or item.widget()).sizePolicy()
+			spt = SizePolicyTuple(sp.horizontalPolicy(), sp.verticalPolicy())
+		policyForItem[id(item)] = spt, (item.layout() or item.spacerItem() or item.widget())
 
-		items = [self.itemAt(i) for i in range(self.count())]
+	colsPolicies: list[list[QSizePolicy.Policy]] = [[] for _ in range(cCnt)]
+	rowsPolicies: list[list[QSizePolicy.Policy]] = [[] for _ in range(rCnt)]
 
-		for item in items:
-			spt: SizePolicyTuple
-			if (layout := item.layout()) is not None:
-				spt = layout._recalculateSizePolicy() if hasattr(layout, '_recalculateSizePolicy') else None
-				if spt is None:
-					# not seamless
-					return None
-			else:
-				sp = (item.spacerItem() or item.widget()).sizePolicy()
-				spt = SizePolicyTuple(sp.horizontalPolicy(), sp.verticalPolicy())
-			policyForItem[id(item)] = spt, (item.layout() or item.spacerItem() or item.widget())
+	for row in range(rCnt):
+		for col in range(cCnt):
+			item = itemAtPosition(row, col)
+			if item is not None:
+				spt = policyForItem[id(item)][0]
+				rowsPolicies[row].append(spt.hPolicy)
+				colsPolicies[col].append(spt.vPolicy)
 
-		colsPolicies: list[list[QSizePolicy.Policy]] = [[] for _ in range(cCnt)]
-		rowsPolicies: list[list[QSizePolicy.Policy]] = [[] for _ in range(rCnt)]
-
-		for row in range(rCnt):
-			for col in range(cCnt):
-				item = self.itemAtPosition(row, col)
-				if item is not None:
-					spt = policyForItem[id(item)][0]
-					rowsPolicies[row].append(spt.hPolicy)
-					colsPolicies[col].append(spt.vPolicy)
-
-		colPolicies = [_mergePoliciesSerial(cPols) for cPols in colsPolicies]
-		rowPolicies = [_mergePoliciesSerial(rPols) for rPols in rowsPolicies]
-		vPolicy = QSizePolicy.Policy(_mergePoliciesParallel(colPolicies))
-		hPolicy = QSizePolicy.Policy(_mergePoliciesParallel(rowPolicies))
-		return SizePolicyTuple(hPolicy, vPolicy)
+	colPolicies = [_mergePoliciesSerial(cPols) for cPols in colsPolicies]
+	rowPolicies = [_mergePoliciesSerial(rPols) for rPols in rowsPolicies]
+	vPolicy = QSizePolicy.Policy(_mergePoliciesParallel(colPolicies))
+	hPolicy = QSizePolicy.Policy(_mergePoliciesParallel(rowPolicies))
+	return SizePolicyTuple(hPolicy, vPolicy)
 
 
 def _mergePoliciesSerial(policies: list[QSizePolicy.Policy]) -> QSizePolicy.Policy:
@@ -950,7 +979,8 @@ def _mergePoliciesParallel2(p1: QSizePolicy.Policy, p2: QSizePolicy.Policy) -> Q
 		return p2
 	elif p2 & QSizePolicy.IgnoreFlag:
 		return p1
-	return p1 & p2
+	# GrowFlag and ShrinkFlag require both widgets to comply, whereas ExpandFlag only requires one.
+	return (p1 & p2) | ((p1 | p2) & QSizePolicy.ExpandFlag)
 
 
 def _framedForItem(item: QLayoutItem) -> Optional[CatFramedWidgetMixin]:
@@ -1161,6 +1191,8 @@ __all__ = [
 	'calculateBorderInfoSimple',
 	'calculateBorderInfo',
 	'finalizeBorders',
+	'SizePolicyTuple',
+	'calculateCombinedSizePolicy',
 	'SeamlessSingleColumnLayout',
 	'SeamlessDoubleColumnLayout',
 	'SeamlessSingleRowLayout',
