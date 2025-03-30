@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from math import ceil, inf
-from typing import List, NamedTuple, Optional, TYPE_CHECKING, Tuple, cast, overload
+from typing import List, NamedTuple, TYPE_CHECKING, Tuple, cast, overload
 
 from PyQt5 import sip
 from PyQt5.QtCore import QAbstractTableModel, QEvent, QItemSelection, QItemSelectionModel, QModelIndex, QObject, QPoint, \
@@ -11,9 +11,8 @@ from PyQt5.QtGui import QAbstractTextDocumentLayout, QBrush, QColor, QCursor, QF
 	QPicture, QPixmap, QPolygonF, QResizeEvent, QScreen, QShortcutEvent, QStaticText, QTextDocument, QTextLayout, \
 	QTextLine, QTextOption, QValidator
 from PyQt5.QtWidgets import QAbstractButton, QAbstractItemView, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, \
-	QGraphicsBlurEffect, QGraphicsEffect, QGridLayout, QLabel, QLayout, QLineEdit, QPushButton, QRadioButton, \
-	QScrollArea, QShortcut, QSizePolicy, QStyle, QStyleOptionViewItem, QStyledItemDelegate, QTableView, QTextEdit, \
-	QTreeView, QWidget
+	QGridLayout, QLabel, QLayout, QLineEdit, QPushButton, QRadioButton, QScrollArea, QShortcut, QSizePolicy, QStyle, \
+	QStyleOptionViewItem, QStyledItemDelegate, QTableView, QTextEdit, QTreeView, QWidget
 
 from .Layouts import finalizeBorders, SeamlessQGridLayout
 from ..utilities import connectSafe, safeEmit
@@ -46,11 +45,11 @@ def paintGridLayoutBorders(p: QPainter, layout: QLayout) -> None:
 
 
 class CatToolbarSpacer(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super().__init__(parent=parent)
 		self.setColorPalette(palettes.panelColorPalette)
 		self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-		self._roundedCorners = CORNERS.NONE
+		self._roundedCorners: RoundedCorners = CORNERS.NONE
 
 	@CrashReportWrapped
 	def sizeHint(self) -> QSize:
@@ -64,7 +63,7 @@ class CatToolbarSpacer(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatSca
 
 	@CrashReportWrapped
 	@PaintEventDebug
-	def paintEvent(self, event):
+	def paintEvent(self, event: QPaintEvent) -> None:
 		self.updateScaleFromFontMetrics()
 		rect = self.adjustRectByOverlap(self.rect())
 		borderPath = self.getBorderPath(rect)
@@ -78,13 +77,13 @@ class CatToolbarSpacer(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatSca
 
 
 class CatPanel(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super().__init__(parent=parent)
-		self._roundedCorners = CORNERS.NONE
+		self._roundedCorners: RoundedCorners = CORNERS.NONE
 		self._default: bool = False
 		self._windowPanel: bool = False
 		self._hasBorder: bool = True
-		self._neverInactive = True
+		self._neverInactive: bool = True
 		self._updateColorPalette()
 
 	def isDefault(self) -> bool:
@@ -123,7 +122,7 @@ class CatPanel(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatScalableWid
 
 	@CrashReportWrapped
 	@PaintEventDebug
-	def paintEvent(self, event):
+	def paintEvent(self, event: QPaintEvent) -> None:
 		drawLayoutBorders = False
 		self.updateScaleFromFontMetrics()
 		rect = self.adjustRectByOverlap(self.rect())
@@ -153,7 +152,7 @@ class CatPanel(QWidget, CatSizePolicyMixin, CatFramedWidgetMixin, CatScalableWid
 
 
 class CatSeparator(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super().__init__(parent=parent)
 		self._orientation: Qt.Orientation = Qt.Horizontal
 		self.setColorPalette(palettes.panelColorPalette)
@@ -177,7 +176,7 @@ class CatSeparator(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyle
 
 	@CrashReportWrapped
 	@PaintEventDebug
-	def paintEvent(self, event):
+	def paintEvent(self, event: QPaintEvent) -> None:
 		self.updateScaleFromFontMetrics()
 		# get Colors:
 		borderBrush = self.getBorderBrush()
@@ -203,7 +202,7 @@ class CatSeparator(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyle
 
 class CatOverlay(QWidget):
 
-	def __init__(self, parent: Optional[QWidget] = None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(CatOverlay, self).__init__(parent)
 
 	@classmethod
@@ -238,9 +237,9 @@ class CatLabel(CatClickableMixin, QLabel, CatSizePolicyMixin, CatScalableWidgetM
 	it also have setIcon() and setIconSize() functions
 	"""
 
-	def __init__(self, parent: Optional[QWidget] = None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(CatLabel, self).__init__(parent=parent)
-		self._icon: Optional[QIcon] = QIcon()
+		self._icon: QIcon = QIcon()
 		self._updatingPixmapFromIcon: bool = False
 		self._scale: float = 1.
 		self._iconScale: float = 0.8
@@ -287,7 +286,7 @@ class CatLabel(CatClickableMixin, QLabel, CatSizePolicyMixin, CatScalableWidgetM
 			self._icon = QIcon()
 			super(CatLabel, self).clear()
 
-	def _updatePixMapFromIcon(self):
+	def _updatePixMapFromIcon(self) -> None:
 		self._updatingPixmapFromIcon = True
 		try:
 			cm = self.getContentsMargins()
@@ -302,10 +301,10 @@ class CatLabel(CatClickableMixin, QLabel, CatSizePolicyMixin, CatScalableWidgetM
 			self._updatingPixmapFromIcon = False
 
 	@CrashReportWrapped
-	def update(self, *args, **kwargs):
+	def update(self, *args, **kwargs) -> None:
 		if not self._icon.isNull():
 			self._updatePixMapFromIcon()
-		return super(CatLabel, self).update(*args, **kwargs)
+		super(CatLabel, self).update(*args, **kwargs)
 
 	@CrashReportWrapped
 	def resizeEvent(self, event: QResizeEvent) -> None:
@@ -340,7 +339,7 @@ class CatElidedLabel(CatClickableMixin, QLabel):
 
 	elisionChanged = pyqtSignal(bool)
 
-	def __init__(self, parent: QWidget = None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(CatElidedLabel, self).__init__(parent)
 		self._isElided: bool = False
 		self._elideMode: Qt.TextElideMode = Qt.ElideRight
@@ -350,7 +349,7 @@ class CatElidedLabel(CatClickableMixin, QLabel):
 	def elideMode(self) -> Qt.TextElideMode:
 		return self._elideMode
 
-	def setElideMode(self, value: Qt.TextElideMode):
+	def setElideMode(self, value: Qt.TextElideMode) -> None:
 		self._elideMode = value
 
 	def isElided(self) -> bool:
@@ -469,27 +468,27 @@ class CatElidedLabel(CatClickableMixin, QLabel):
 
 class CatTextField(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, CatFramedAreaMixin, QLineEdit, CatSizePolicyMixin, CatStyledWidgetMixin):
 	"""a QTextField with a keyPressed signal"""
-	def __init__(self, parent: Optional[QWidget] = None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(CatTextField, self).__init__(parent)
-		self._capturesTab = False
+		self._capturesTab: bool = False
 		self.setFrame(True)
 		self.setMargins(self.smallDefaultMargins)
-		self._roundedCorners = CORNERS.NONE
-		self._colorPalette = palettes.inputColorPalette
-		self._highlightOnFocus = True
+		self._roundedCorners: RoundedCorners = CORNERS.NONE
+		self._colorPalette: ColorPalette = palettes.inputColorPalette
+		self._highlightOnFocus: bool = True
 
 	keyPressed = pyqtSignal(QLineEdit, QKeyEvent)
 
-	def isCapturingTab(self):
+	def isCapturingTab(self) -> bool:
 		return self._capturesTab
 
-	def setCapturingTab(self, v):
+	def setCapturingTab(self, v: bool) -> None:
 		self._capturesTab = v
 
-	def plainText(self):
+	def plainText(self) -> str:
 		return self.text()
 
-	def setPlainText(self, text):
+	def setPlainText(self, text: str) -> None:
 		return self.setText(text)
 
 	def refresh(self) -> None:
@@ -502,7 +501,7 @@ class CatTextField(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, CatFram
 		safeEmit(self, self.keyPressed, self, event)
 
 	@CrashReportWrapped
-	def event(self, event):
+	def event(self, event: QEvent) -> bool:
 		if (event.type() == QEvent.KeyPress) and (event.key() == Qt.Key_Tab) and self._capturesTab:
 			safeEmit(self, self.keyPressed, self, event)
 			return True
@@ -530,20 +529,20 @@ class CatTextField(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, CatFram
 
 class CatMultiLineTextField(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, CatFramedAbstractScrollAreaMixin, QTextEdit, CatStyledWidgetMixin):
 	"""a QTextField with a keyPressed signal"""
-	def __init__(self):
+	def __init__(self) -> None:
 		super().__init__()
 		self._capturesTab = False
-		self._roundedCorners = CORNERS.NONE
-		self._colorPalette = palettes.inputColorPaletteB
+		self._roundedCorners: RoundedCorners = CORNERS.NONE
+		self._colorPalette: ColorPalette = palettes.inputColorPaletteB
 		self.setLineWidth(1)
 		self._highlightOnFocus = True
 
 	keyPressed = pyqtSignal(QTextEdit, QKeyEvent)
 
-	def isCapturingTab(self):
+	def isCapturingTab(self) -> bool:
 		return self._capturesTab
 
-	def setCapturingTab(self, v):
+	def setCapturingTab(self, v: bool) -> None:
 		self._capturesTab = v
 
 	@CrashReportWrapped
@@ -559,7 +558,7 @@ class CatMultiLineTextField(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin
 		result = super().event(event)
 		return result
 
-	def plainText(self):
+	def plainText(self) -> str:
 		return self.toPlainText()
 
 	def cursorPosition(self) -> int:
@@ -583,27 +582,27 @@ class CatMultiLineTextField(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin
 
 class CatComboBox(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, CatFramedAreaMixin, QComboBox, CatSizePolicyMixin, CatStyledWidgetMixin):
 	"""a QTextField with a keyPressed signal"""
-	def __init__(self, parent: Optional[QWidget] = None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(CatComboBox, self).__init__(parent)
 		self._capturesTab = False
 		self.setFrame(True)
 		self.setMargins(self.smallDefaultMargins)
-		self._roundedCorners = CORNERS.NONE
-		self._colorPalette = palettes.inputColorPalette
+		self._roundedCorners: RoundedCorners = CORNERS.NONE
+		self._colorPalette: ColorPalette = palettes.inputColorPalette
 		self._highlightOnFocus = True
 
 	keyPressed = pyqtSignal(QLineEdit, QKeyEvent)
 
-	def isCapturingTab(self):
+	def isCapturingTab(self) -> bool:
 		return self._capturesTab
 
-	def setCapturingTab(self, v):
+	def setCapturingTab(self, v: bool) -> None:
 		self._capturesTab = v
 
-	def plainText(self):
+	def plainText(self) -> str:
 		return self.currentText()
 
-	def setPlainText(self, text):
+	def setPlainText(self, text: str) -> None:
 		return self.setCurrentText(text)
 
 	def refresh(self) -> None:
@@ -616,8 +615,8 @@ class CatComboBox(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, CatFrame
 		safeEmit(self, self.keyPressed, self, event)
 
 	@CrashReportWrapped
-	def event(self, event):
-		if (event.type()==QEvent.KeyPress) and (event.key()==Qt.Key_Tab) and self._capturesTab:
+	def event(self, event: QEvent) -> bool:
+		if (event.type() == QEvent.KeyPress) and (event.key() == Qt.Key_Tab) and self._capturesTab:
 			safeEmit(self, self.keyPressed, self, event)
 			return True
 		return super(CatComboBox, self).event(event)
@@ -645,10 +644,10 @@ class CatComboBox(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, CatFrame
 
 class CatScrollArea(CatFramedAbstractScrollAreaMixin, QScrollArea, CatStyledWidgetMixin):
 	"""a QTextField with a keyPressed signal"""
-	def __init__(self):
+	def __init__(self) -> None:
 		super().__init__()
-		self._roundedCorners = CORNERS.NONE
-		self._colorPalette = palettes.windowPanelColorPalette
+		self._roundedCorners: RoundedCorners = CORNERS.NONE
+		self._colorPalette: ColorPalette = palettes.windowPanelColorPalette
 		self.setLineWidth(1)
 		self._sizeHint: QSize = QSize()
 
@@ -754,7 +753,7 @@ class SpinBoxValidateResult(NamedTuple):
 
 class Int64SpinBox(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, QAbstractSpinBox):
 	# adapted from https://stackoverflow.com/a/32628421/8091657.
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super().__init__(parent)
 		self.m_minimum: int = -9_223_372_036_854_775_808
 		self.m_maximum: int = +9_223_372_036_854_775_807
@@ -774,7 +773,7 @@ class Int64SpinBox(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, QAbstra
 	def _hasSpecialValue(self) -> bool:
 		return self.m_value == self.m_minimum and self.specialValueText()
 
-	def _updateEdit(self):
+	def _updateEdit(self) -> None:
 		newText: str = self.m_specialValueText if self._hasSpecialValue() else self.m_prefix + self.textFromValue(self.m_value) + self.m_suffix
 		edit =  self.lineEdit()
 		if newText == edit.displayText():  # or cleared:
@@ -1008,18 +1007,19 @@ class Int64SpinBox(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, QAbstra
 	def Xvalidate(self, input: str, pos: int) -> Tuple[QValidator.State, str, int]:
 		validateResult = self._validateAndInterpret(input, pos)
 		return validateResult.state, validateResult.text, validateResult.cursorPos
+
 	@CrashReportWrapped
-	def updateTextFromValue(self):
+	def updateTextFromValue(self) -> None:
 		self.lineEdit().setText(self.m_prefix + self.textFromValue(self.m_value) + self.m_suffix)
 
 	@CrashReportWrapped
-	def onEditFinished(self):
+	def onEditFinished(self) -> None:
 		cursorPos: int = self.lineEdit().cursorPosition()
 		value = self._validateAndInterpret(self.text(), cursorPos).value
 		self.setValueInternal(value, True)
 
 	@CrashReportWrapped
-	def onEditChanged(self, text: str):
+	def onEditChanged(self, text: str) -> None:
 		pos: int = self.lineEdit().cursorPosition()
 		if self.validate(text, pos)[0] == QValidator.Acceptable:
 			self.setValueInternal(self.valueFromText(text), True)
@@ -1031,7 +1031,7 @@ class Int64SpinBox(CatFocusableMixin, ShortcutMixin, UndoBlockableMixin, QAbstra
 
 
 class CatButton(CatFocusableMixin, ShortcutMixin, QPushButton, CatSizePolicyMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(CatButton, self).__init__(parent=parent)
 		self.setCheckable(False)
 		self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
@@ -1133,7 +1133,7 @@ class CatButton(CatFocusableMixin, ShortcutMixin, QPushButton, CatSizePolicyMixi
 		return self.adjustSizeByOverlap(self.getDefaultMinimumSize())
 
 	@CrashReportWrapped
-	def resizeEvent(self, event: QResizeEvent):
+	def resizeEvent(self, event: QResizeEvent) -> None:
 		self.refresh()
 		super(CatButton, self).resizeEvent(event)
 
@@ -1167,7 +1167,7 @@ class CatButton(CatFocusableMixin, ShortcutMixin, QPushButton, CatSizePolicyMixi
 
 	@CrashReportWrapped
 	@PaintEventDebug
-	def paintEvent(self, event):
+	def paintEvent(self, event: QPaintEvent) -> None:
 		self._updateColorPalette()
 		drawLayoutBorders = False
 
@@ -1213,24 +1213,24 @@ class CatButton(CatFocusableMixin, ShortcutMixin, QPushButton, CatSizePolicyMixi
 
 
 class CatToolButton(CatButton):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super().__init__(parent=parent)
 		self.setCheckable(False)
 		self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 		self.setMargins(self.smallDefaultMargins)
-		self._roundedCorners = CORNERS.NONE
+		self._roundedCorners: RoundedCorners = CORNERS.NONE
 		self._elideMode: Qt.TextElideMode = Qt.ElideNone
 
 
 class CatGradiantButton(CatButton):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(CatGradiantButton, self).__init__(parent=parent)
 		self._normalColorPalette = palettes.gradiantButtonColorPalette
 		self._updateColorPalette()
 
 
 class CatFramelessButton(CatButton):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(CatFramelessButton, self).__init__(parent=parent)
 		self._normalColorPalette = palettes.framelessButtonColorPalette
 		self._updateColorPalette()
@@ -1241,7 +1241,7 @@ class CatFramelessButton(CatButton):
 
 
 class Switch(CatFocusableMixin, ShortcutMixin, QAbstractButton, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super().__init__(parent=parent)
 		self.setCheckable(True)
 		self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -1320,19 +1320,19 @@ class Switch(CatFocusableMixin, ShortcutMixin, QAbstractButton, CatSizePolicyMix
 		return self.width() - self.toggleOffset()
 
 	@CrashReportWrapped
-	def sizeHint(self):
+	def sizeHint(self) -> QSize:
 		return QSize(
 			int(2 * self.trackDiameter + 2 * self.trackMargin + self.toggleOffset()),
 			int(self.trackDiameter + 2 * self.trackMargin),
 		)
 
 	@CrashReportWrapped
-	def setChecked(self, checked):
+	def setChecked(self, checked: bool) -> None:
 		super().setChecked(checked)
 		self.moveKnobTo(self.isChecked())
 
 	@CrashReportWrapped
-	def resizeEvent(self, event):
+	def resizeEvent(self, event: QResizeEvent) -> None:
 		super().resizeEvent(event)
 
 	def _updateColorPalette(self) -> None:
@@ -1344,7 +1344,7 @@ class Switch(CatFocusableMixin, ShortcutMixin, QAbstractButton, CatSizePolicyMix
 
 	@CrashReportWrapped
 	@PaintEventDebug
-	def paintEvent(self, event):
+	def paintEvent(self, event: QPaintEvent) -> None:
 		self.updateScaleFromFontMetrics()
 		self._updateColorPalette()
 
@@ -1469,20 +1469,20 @@ class Switch(CatFocusableMixin, ShortcutMixin, QAbstractButton, CatSizePolicyMix
 		self.moveKnobTo(self.isChecked())
 
 	@CrashReportWrapped
-	def mouseReleaseEvent(self, event):
+	def mouseReleaseEvent(self, event: QMouseEvent) -> None:
 		super().mouseReleaseEvent(event)
 		if event.button() == Qt.LeftButton:
 			pass
 
 	@CrashReportWrapped
-	def enterEvent(self, event):
+	def enterEvent(self, event: QEvent) -> None:
 		self.setCursor(Qt.PointingHandCursor)
 		super().enterEvent(event)
 
 
 # class CatCheckBox(CatFocusableMixin, ShortcutMixin, QCheckBox, CatSizePolicyMixin, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
 class CatCheckBox(CatFocusableMixin, ShortcutMixin, QCheckBox, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(CatCheckBox, self).__init__(parent=parent)
 		self.setCheckable(True)
 		self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
@@ -1492,10 +1492,10 @@ class CatCheckBox(CatFocusableMixin, ShortcutMixin, QCheckBox, CatSizePolicyMixi
 		self._normalColorPalette: ColorPalette = palettes.buttonColorPalette
 		self._partiallyColorPalette: ColorPalette = palettes.defaultButtonColorPalette
 		self._checkedColorPalette: ColorPalette = palettes.defaultButtonColorPalette
-		self._colorPalette = palettes.buttonColorPalette
+		self._colorPalette: ColorPalette = palettes.buttonColorPalette
 		self._cornerRadius: int = 2
-		self._highlightOnHover = True
-		self._highlightOnFocus = True
+		self._highlightOnHover: bool = True
+		self._highlightOnFocus: bool = True
 		self._layoutContents()
 
 	# @property
@@ -1640,7 +1640,7 @@ class CatCheckBox(CatFocusableMixin, ShortcutMixin, QCheckBox, CatSizePolicyMixi
 
 	@CrashReportWrapped
 	@PaintEventDebug
-	def paintEvent(self, event):
+	def paintEvent(self, event: QPaintEvent) -> None:
 		self._updateColorPalette()
 		drawLayoutBorders = False
 
@@ -1682,7 +1682,7 @@ class CatCheckBox(CatFocusableMixin, ShortcutMixin, QCheckBox, CatSizePolicyMixi
 
 
 class CatRadioButton(CatFocusableMixin, ShortcutMixin, QRadioButton, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(QRadioButton, self).__init__(parent=parent)
 		self.setCheckable(True)
 		self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
@@ -1692,7 +1692,7 @@ class CatRadioButton(CatFocusableMixin, ShortcutMixin, QRadioButton, CatSizePoli
 		self._normalColorPalette: ColorPalette = palettes.buttonColorPalette
 		#self._partiallyColorPalette: ColorPalette = palettes.defaultButtonColorPalette
 		self._checkedColorPalette: ColorPalette = palettes.defaultButtonColorPalette
-		self._colorPalette = palettes.buttonColorPalette
+		self._colorPalette: ColorPalette = palettes.buttonColorPalette
 		self._cornerRadius: int = 2
 		self._highlightOnHover = True
 		self._highlightOnFocus = True
@@ -1832,7 +1832,7 @@ class CatRadioButton(CatFocusableMixin, ShortcutMixin, QRadioButton, CatSizePoli
 
 	@CrashReportWrapped
 	@PaintEventDebug
-	def paintEvent(self, event):
+	def paintEvent(self, event: QPaintEvent) -> None:
 		self._updateColorPalette()
 		drawLayoutBorders = False
 
@@ -1867,7 +1867,7 @@ class CatRadioButton(CatFocusableMixin, ShortcutMixin, QRadioButton, CatSizePoli
 
 
 class CatProgressBar(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
-	def __init__(self, parent=None):
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super().__init__(parent=parent)
 		self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
 
@@ -1964,17 +1964,17 @@ class CatProgressBar(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatSty
 		self.update()
 
 	@CrashReportWrapped
-	def sizeHint(self):
+	def sizeHint(self) -> QSize:
 		return self.getDefaultSize(self.text())
 
 	@CrashReportWrapped
-	def resizeEvent(self, event):
+	def resizeEvent(self, event: QResizeEvent) -> None:
 		super().resizeEvent(event)
 		self.updateScaleFromFontMetrics()
 
 	@CrashReportWrapped
 	@PaintEventDebug
-	def paintEvent(self, event):
+	def paintEvent(self, event: QPaintEvent) -> None:
 		rect = self.rect()
 		# get Colors:
 		bkgBrush = self.getBackgroundBrush(rect)
@@ -1983,8 +1983,8 @@ class CatProgressBar(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatSty
 		progressBrush = self.getIndicatorBrush(rect)
 		progressBorderPen = QPen(self.getIndicatorBorderBrush(), 1, join=Qt.MiterJoin)
 
-		textPen1 =  QPen(self.getTextBrush(), 1, join=Qt.MiterJoin)
-		textPen2 =  QPen(self.getTextBrush(), 1, join=Qt.MiterJoin)
+		textPen1 = QPen(self.getTextBrush(), 1, join=Qt.MiterJoin)
+		textPen2 = QPen(self.getTextBrush(), 1, join=Qt.MiterJoin)
 
 		text = self.text()
 
@@ -2034,7 +2034,7 @@ class CatProgressBar(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatSty
 
 class Spoiler(CatFocusableMixin, ShortcutMixin, CatClickableMixin, QWidget, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyledWidgetMixin):
 
-	def __init__(self, parent=None, title=''):
+	def __init__(self, parent: QWidget | None = None, title: str = '') -> None:
 
 		super(Spoiler, self).__init__(parent=parent)
 
@@ -2048,23 +2048,23 @@ class Spoiler(CatFocusableMixin, ShortcutMixin, CatClickableMixin, QWidget, CatF
 		self.setSizePolicy(sp)
 		self.setColorPalette(palettes.framelessButtonColorPalette)
 
-	def title(self):
+	def title(self) -> str:
 		return self._title
 
-	def setTitle(self, title: str):
+	def setTitle(self, title: str) -> None:
 		self._title = title
 
-	def isOpen(self):
+	def isOpen(self) -> bool:
 		return self._open
 
-	def setOpen(self, isOpen):
+	def setOpen(self, isOpen: bool) -> None:
 		self._open = isOpen
 		self.update()
 
-	def isDrawDisabled(self):
+	def isDrawDisabled(self) -> bool:
 		return self._drawDisabled
 
-	def setDrawDisabled(self, isDrawDisabled):
+	def setDrawDisabled(self, isDrawDisabled: bool) -> None:
 		self._drawDisabled = isDrawDisabled
 		self.update()
 
@@ -2087,7 +2087,7 @@ class Spoiler(CatFocusableMixin, ShortcutMixin, CatClickableMixin, QWidget, CatF
 
 	@CrashReportWrapped
 	@PaintEventDebug
-	def paintEvent(self, paintEvent: QPaintEvent):
+	def paintEvent(self, event: QPaintEvent) -> None:
 		drawLayoutBorders = False
 		self.updateScaleFromFontMetrics()
 
@@ -2132,25 +2132,25 @@ class Spoiler(CatFocusableMixin, ShortcutMixin, CatClickableMixin, QWidget, CatF
 
 
 class DataTableModel(QAbstractTableModel):
-	def __init__(self, parent, headers = ()):
+	def __init__(self, parent, headers = ()) -> None:
 		QAbstractTableModel.__init__(self, parent)
-		self.tableData = []
-		self.headers = headers
+		self.tableData: list[list[str]] = []
+		self.headers: tuple[str] = headers
 
-	def _numRows(self):
+	def _numRows(self) -> int:
 		"""
 		:return: number of rows with data
 		"""
 		return len(self.tableData)
 
-	def _getRow(self, row):
+	def _getRow(self, row: int):
 		"""
 		:param row: int of the row to get 
 		:return: data of the row
 		"""
 		return self.tableData[row] if row < self._numRows() else [""] * self.columnCount()
 
-	def _isRowEmpty(self, row):
+	def _isRowEmpty(self, row: int) -> bool:
 		"""
 		checks if the row is empty
 		:param row: int of the row to check
@@ -2158,7 +2158,7 @@ class DataTableModel(QAbstractTableModel):
 		"""
 		return all(not str(v).strip() for v in self._getRow(row))
 
-	def _removeTrailingEmptyRows(self):
+	def _removeTrailingEmptyRows(self) -> None:
 		"""
 		remove all rows at the end of the table that are empty
 		"""
@@ -2168,7 +2168,7 @@ class DataTableModel(QAbstractTableModel):
 			else:
 				break
 
-	def _removeEmptyRows(self):
+	def _removeEmptyRows(self) -> None:
 		"""
 		remove all empty rows 
 		"""
@@ -2176,7 +2176,7 @@ class DataTableModel(QAbstractTableModel):
 			if self._isRowEmpty(row):
 				del self.tableData[row]
 
-	def _ensureHasRows(self, numRows):
+	def _ensureHasRows(self, numRows: int) -> None:
 		"""
 		ensure the table has numRows
 		:param numRows:  number of rows that should exist
@@ -2184,7 +2184,7 @@ class DataTableModel(QAbstractTableModel):
 		while self._numRows() < numRows:
 			self.tableData.append([""] * self.columnCount())
 
-	def _setCellText(self, row, col, text):
+	def _setCellText(self, row: int, col: int, text: str) -> None:
 		"""
 		set the text of a cell
 		:param row: row of the cell
@@ -2194,7 +2194,7 @@ class DataTableModel(QAbstractTableModel):
 		self._ensureHasRows(row + 1)
 		self.tableData[row][col] = str(text).strip()
 
-	def _getCellText(self, row, col):
+	def _getCellText(self, row: int, col: int) -> str:
 		"""
 		get the text of a cell
 		:param row: row of the cell
@@ -2207,9 +2207,9 @@ class DataTableModel(QAbstractTableModel):
 
 	selectCell = pyqtSignal(QModelIndex)
 
-	def emptyCells(self, indexes):
+	def emptyCells(self, indexes: list[QModelIndex]) -> None:
 		"""
-		empty the cells with the indexes
+		empty the cells with the indexes.
 		:param indexes: indexes of the cells to be emptied
 		"""
 		for index in indexes:
@@ -2225,7 +2225,7 @@ class DataTableModel(QAbstractTableModel):
 		safeEmit(self, self.selectCell, indexes[0])
 
 	@CrashReportWrapped
-	def rowCount(self, _=QModelIndex()):
+	def rowCount(self, _=QModelIndex()) -> int:
 		"""
 		number of rows
 		:return: returns the number of rows
@@ -2234,7 +2234,7 @@ class DataTableModel(QAbstractTableModel):
 		return self._numRows() + 1
 
 	@CrashReportWrapped
-	def columnCount(self, _=QModelIndex()):
+	def columnCount(self, _=QModelIndex()) -> int:
 		"""
 		number of columns
 		:return: number of columns
@@ -2242,20 +2242,20 @@ class DataTableModel(QAbstractTableModel):
 		return len(self.headers)
 
 	@CrashReportWrapped
-	def headerData(self, selection, orientation, role):
+	def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole) -> str | None:
 		"""
 		header of the selection
-		:param selection: selected cells
+		:param section: selected cells
 		:param orientation: orientation of selection
 		:param role: role of the selection
 		:return: header of the selection
 		"""
 		if Qt.Horizontal == orientation and Qt.DisplayRole == role:
-			return self.headers[selection]
+			return self.headers[section]
 		return None
 
 	@CrashReportWrapped
-	def data(self, index, role):
+	def data(self, index: QModelIndex, role: int) -> str | None:
 		"""
 		data of the cell
 		:param index: index of the cell
@@ -2267,7 +2267,7 @@ class DataTableModel(QAbstractTableModel):
 		return None
 
 	@CrashReportWrapped
-	def setData(self, index, text, _):
+	def setData(self, index: QModelIndex, text: str, _) -> bool:
 		"""
 		set text in the cell
 		:param index: index of the cell
@@ -2296,7 +2296,7 @@ class DataTableModel(QAbstractTableModel):
 		return True
 
 	@CrashReportWrapped
-	def flags(self, _):
+	def flags(self, _) -> Qt.ItemFlags:
 		"""
 		flags for the table
 		:return: flags
@@ -2310,23 +2310,23 @@ class DataTableView(CatFocusableMixin, ShortcutMixin, QTableView):
 	"""
 
 	@CrashReportWrapped
-	def keyPressEvent(self, QKeyEvent):
+	def keyPressEvent(self, event: QKeyEvent) -> None:
 		"""
 		reimplemented keyPressEvent for deleting cells and arrows in editing cells 
-		:param QKeyEvent: 
+		:param event:
 		:return: 
 		"""
 		if self.state() == QAbstractItemView.EditingState:
 			index = self.currentIndex()
-			if QKeyEvent.key() in [Qt.Key_Down, Qt.Key_Up]:
+			if event.key() in [Qt.Key_Down, Qt.Key_Up]:
 				self.setFocus(Qt.ShortcutFocusReason)
 				self.setCurrentIndex(self.model().index(index.row(), index.column()))
 			else:
-				QTableView.keyPressEvent(self, QKeyEvent)
-		if QKeyEvent.key() in [Qt.Key_Delete, Qt.Key_Backspace]:
-			self.model().emptyCells(self.selectedIndexes())
+				QTableView.keyPressEvent(self, event)
+		if event.key() in [Qt.Key_Delete, Qt.Key_Backspace]:
+			cast(DataTableModel, self.model()).emptyCells(self.selectedIndexes())
 		else:
-			QTableView.keyPressEvent(self, QKeyEvent)
+			QTableView.keyPressEvent(self, event)
 
 
 class HTMLDelegate2(QStyledItemDelegate):
@@ -2387,7 +2387,7 @@ class HTMLDelegate2(QStyledItemDelegate):
 
 class HTMLDelegate(QStyledItemDelegate):
 
-	def __init__(self):
+	def __init__(self) -> None:
 		super(HTMLDelegate, self).__init__()
 
 	def _makeDoc(self, options: QStyleOptionViewItem) -> QTextDocument:
@@ -2511,14 +2511,14 @@ class HTMLDelegate(QStyledItemDelegate):
 
 
 class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollAreaMixin, QTreeView, CatStyledWidgetMixin):
-	def __init__(self, parent: Optional[QObject] = None):
+	def __init__(self, parent: QObject | None = None) -> None:
 		super().__init__(parent)
-		self._roundedCorners = CORNERS.NONE
-		self._colorPalette = palettes.inputColorPalette
+		self._roundedCorners: RoundedCorners = CORNERS.NONE
+		self._colorPalette: ColorPalette = palettes.inputColorPalette
 		self.setLineWidth(1)
 
 		treeModel = self._makeTreeModel()
-		treeModel._loadDeferred: bool = True
+		treeModel._loadDeferred = True
 		self.setModel(treeModel)
 
 		# we need to set the selesctionModel manually again to avoid this Exception on Linux and Mac: "RuntimeError: no access to protected functions or signals for objects not created from Python"
@@ -2537,7 +2537,7 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 		QShortcut(QKeySequence.Delete,   self, lambda s=self: s.onDelete(), lambda: None, Qt.WidgetShortcut)
 		# QShortcut(Qt.Key_Return,      self, lambda s=self: s.onDoubleClick(self.currentIndex()), lambda: None, Qt.WidgetShortcut)
 		# QShortcut(Qt.Key_Enter,       self, lambda s=self: s.onDoubleClick(self.currentIndex()), lambda: None, Qt.WidgetShortcut)
-		self._pressedIndex: Optional[QModelIndex] = None
+		self._pressedIndex: QModelIndex | None = None
 
 	dataChanged = pyqtSignal()
 
@@ -2566,7 +2566,7 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 			return False
 
 	@CrashReportWrapped
-	def onCopy(self):
+	def onCopy(self) -> None:
 		index = self.selectionModel().currentIndex()
 		if index.isValid():
 			data = index.internalPointer().onCopy()
@@ -2574,7 +2574,7 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 				QApplication.clipboard().setText(data)
 
 	@CrashReportWrapped
-	def onCut(self):
+	def onCut(self) -> None:
 		index = self.selectionModel().currentIndex()
 		if index.isValid():
 			data = index.internalPointer().onCut()
@@ -2583,8 +2583,8 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 				safeEmit(self, self.dataChanged, )
 
 	@CrashReportWrapped
-	def onPaste(self):
-		treeItem: Optional[TreeItemBase] = None
+	def onPaste(self) -> None:
+		treeItem: TreeItemBase | None = None
 
 		sm: QItemSelectionModel = self.selectionModel()
 		index = sm.currentIndex()
@@ -2598,11 +2598,11 @@ class BuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScrollA
 		if treeItem is not None:
 			data = QApplication.clipboard().text()
 			treeItem.onPaste(data)
-			safeEmit(self, self.dataChanged, )
+			safeEmit(self, self.dataChanged)
 			sm.emitSelectionChanged(sm.selection(), QItemSelection())
 
 	@CrashReportWrapped
-	def onDelete(self):
+	def onDelete(self) -> None:
 		index = self.selectionModel().currentIndex()
 		if index.isValid():
 			index.internalPointer().onDelete()
@@ -2694,8 +2694,8 @@ def distanceToRectSquared(pos: QPoint, rect: QRect) -> int:
 	return QPoint.dotProduct(vector, vector)
 
 
-def findClosestScreen(pos: QPoint, screens: List[QScreen]) -> Optional[QScreen]:
-	nearestScreen: Optional[QScreen] = None
+def findClosestScreen(pos: QPoint, screens: List[QScreen]) -> QScreen | None:
+	nearestScreen: QScreen | None = None
 	nearestScreenDistanceSqr = +inf
 
 	for screen in screens:
@@ -2730,7 +2730,7 @@ def fitToScreen(x: int, y: int, nWidth: int, nHeight: int) -> QRect:
 
 
 class CatWindowMixin:
-	def __init__(self, *args, x: Optional[int] = None, y: Optional[int] = None, width: Optional[int] = None, height: Optional[int] = None, **kwargs):
+	def __init__(self, *args, x: int | None = None, y: int | None = None, width: int | None = None, height: int | None = None, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 
 		self.setInitialGeometry(x, y, width, height)
@@ -2752,7 +2752,7 @@ class CatWindowMixin:
 		def resize(self, *args): ...
 		def parentWidget(self) -> QWidget: ...
 
-	def setInitialGeometry(self, x: Optional[int] = None, y: Optional[int] = None, width: Optional[int] = None, height: Optional[int] = None):
+	def setInitialGeometry(self, x: int | None = None, y: int | None = None, width: int | None = None, height: int | None = None):
 		# size:
 		nWidth = self.width() if width is None else width
 		nHeight = self.height() if height is None else height

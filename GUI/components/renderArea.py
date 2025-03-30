@@ -1069,10 +1069,10 @@ class RenderArea(QWidget, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyle
 		self._roundedCorners = CORNERS.ALL
 		self.setColorPalette(palettes.windowPanelColorPalette)
 
-	def minimumSizeHint(self):
+	def minimumSizeHint(self) -> QSize:
 		return QSize(100, 100)
 
-	def sizeHint(self):
+	def sizeHint(self) -> QSize:
 		return QSize(400, 200)
 
 	def _getBaseScaling(self) -> float:
@@ -1101,7 +1101,7 @@ class RenderArea(QWidget, CatFramedWidgetMixin, CatScalableWidgetMixin, CatStyle
 
 	@CrashReportWrapped
 	@PaintEventDebug
-	def paintEvent(self, event: QPaintEvent):
+	def paintEvent(self, event: QPaintEvent) -> None:
 		self.updateScaleFromFontMetrics()
 		rect = self.adjustRectByOverlap(self.rect())
 

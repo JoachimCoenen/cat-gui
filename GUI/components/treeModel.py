@@ -863,7 +863,7 @@ class TreeModel(QAbstractItemModel):
 		return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
 	@CrashReportWrapped
-	def headerData(self, section: int, orientation: Qt.Orientation, role: Qt.EditRole = Qt.DisplayRole) -> Optional[Any]:
+	def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole) -> Optional[Any]:
 		if orientation == Qt.Vertical:  # and role == Qt.DisplayRole:
 			return None
 		if self.headerItem.treeBuilder is None:

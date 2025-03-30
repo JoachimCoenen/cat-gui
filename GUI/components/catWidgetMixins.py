@@ -31,9 +31,9 @@ def centerOfRect(rect: QRect) -> QPoint:
 	return QPoint(int(centerF.x()), int(centerF.y()))
 
 
-QRect.__hash__ = lambda r: hash(("QRect", r.x(), r.y(), r.width(), r.height()))
-QRectF.__hash__ = lambda r: hash(("QRect", r.x(), r.y(), r.width(), r.height()))
-QColor.__copy__ = lambda c: QColor(c)
+QRect.__hash__ = lambda r: hash(("QRect", r.x(), r.y(), r.width(), r.height()))  # type: ignore
+QRectF.__hash__ = lambda r: hash(("QRect", r.x(), r.y(), r.width(), r.height()))  # type: ignore
+QColor.__copy__ = lambda c: QColor(c)  # type: ignore
 
 
 DEFAULT_PANEL_CORNER_RADIUS = 6.
@@ -57,8 +57,8 @@ def maskCorners(corners: RoundedCorners, mask: RoundedCorners) -> RoundedCorners
 	return cast(RoundedCorners, tuple(map(operator.and_, corners, mask)))
 
 
-def joinCorners(corners1: RoundedCorners, corners2: RoundedCorners) -> RoundedCorners:
-	return cast(RoundedCorners, tuple(map(operator.or_, corners1, corners2)))
+def joinCorners[T: RoundedCorners | InnerCorners](corners1: T, corners2: T) -> T:
+	return cast(T, tuple(map(operator.or_, corners1, corners2)))
 
 
 def joinInnerCorners(corners1: InnerCorners, corners2: InnerCorners) -> InnerCorners:
@@ -77,7 +77,7 @@ def selectInnerCorners(innerCorners: InnerCorners, mask: InnerCorners) -> Rounde
 
 
 class _CORNERS_CONSTS:
-	def __init__(self):
+	def __init__(self) -> None:
 		self.NONE:   RoundedCorners = (False, False, False, False)
 		self.ALL:    RoundedCorners = (True,  True,  True,  True)
 		self.LEFT:   RoundedCorners = (True,  False, True,  False)
@@ -94,7 +94,7 @@ CORNERS: _CORNERS_CONSTS = _CORNERS_CONSTS()
 
 
 class _INNER_CORNERS_CONSTS:
-	def __init__(self):
+	def __init__(self) -> None:
 		self.NONE:   InnerCorners = InnerCorners(False, False, False, False)
 		self.ALL:    InnerCorners = InnerCorners(True,  True,  True,  True)
 		self.LEFT:   InnerCorners = InnerCorners(True,  False, False,  False)
@@ -186,7 +186,7 @@ def adjustOverlap(o1: Overlap, adj: OverlapAdjustment) -> PreciseOverlap:
 
 
 @Decorator
-def PaintEventDebug(method: Callable[[QWidget, QPaintEvent], None]) -> Callable[[QWidget, QPaintEvent], None]:
+def PaintEventDebug[T: QWidget](method: Callable[[T, QPaintEvent], None]) -> Callable[[T, QPaintEvent], None]:
 	if NEVER_DO_DEBUG_PAINT_EVENT:
 		return method
 	hasFailed: bool = False
@@ -264,7 +264,7 @@ def getLayoutBorderPen() -> QPen:
 	return layoutBorderPen
 
 
-def drawLayoutBorder(p: QPainter, rect: QRect,):
+def drawLayoutBorder(p: QPainter, rect: QRect | QRectF):
 	p.setPen(getLayoutBorderPen())
 	p.setBrush(Qt.NoBrush)
 	p.drawRect(QRectF(rect).adjusted(0.5, 0.5, -0.5, -0.5))
@@ -275,13 +275,13 @@ class CatClickableMixin:
 	clicked = pyqtSignal(QMouseEvent)
 
 	@CrashReportWrapped
-	def mouseDoubleClickEvent(self: QWidget, event: QMouseEvent) -> None:
+	def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
 		safeEmit(self, self.doubleClicked, event)
 		event.accept()
 		super(CatClickableMixin, self).mouseDoubleClickEvent(event)
 
 	@CrashReportWrapped
-	def mouseReleaseEvent(self: QWidget, event: QMouseEvent) -> None:
+	def mouseReleaseEvent(self, event: QMouseEvent) -> None:
 		safeEmit(self, self.clicked, event)
 		event.accept()
 		super(CatClickableMixin, self).mouseReleaseEvent(event)
@@ -292,12 +292,12 @@ class CatFocusableMixin:
 	focusLost = pyqtSignal(Qt.FocusReason)
 
 	@CrashReportWrapped
-	def focusInEvent(self: QWidget | CatFocusableMixin, event: QFocusEvent) -> None:
+	def focusInEvent(self, event: QFocusEvent) -> None:
 		super(CatFocusableMixin, self).focusInEvent(event)
 		safeEmit(self, self.focusReceived, event.reason())
 
 	@CrashReportWrapped
-	def focusOutEvent(self: QWidget | CatFocusableMixin, event: QFocusEvent) -> None:
+	def focusOutEvent(self, event: QFocusEvent) -> None:
 		super(CatFocusableMixin, self).focusOutEvent(event)
 		safeEmit(self, self.focusLost, event.reason())
 
@@ -313,7 +313,7 @@ class CatChildrenFocusableMixin:
 
 	@pyqtSlot('QWidget*', 'QWidget*')
 	@CrashReportWrapped
-	def _applicationOnFocusChanged(self: QWidget | CatChildrenFocusableMixin, from_: QWidget, to: QWidget) -> None:
+	def _applicationOnFocusChanged(self, from_: QWidget, to: QWidget) -> None:
 		if self == to or self._isParentOf(to):  # a child (or self) is focused
 			safeEmit(self, self.childFocusReceived)
 		elif self == from_ or self._isParentOf(from_):  # a child (or self) lost focus
@@ -334,9 +334,10 @@ KeySequenceLike: TypeAlias = QKeySequence | QKeySequence.StandardKey | str | int
 
 
 def setQWidgetShortcutBase(item: QObject, shortcutParent: QWidget, shortcutContext: Qt.ShortcutContext, key: KeySequenceLike, onShortcut: Callable[[QShortcut, bool], None]) -> None:
-	currentShortcut: QShortcut = getattr(item, '__currentShortcut', None)
+	currentShortcut: QShortcut | None = getattr(item, '__currentShortcut', None)
 	if currentShortcut is None:
 		currentShortcut = QShortcut(shortcutParent)
+
 		def itemDestroyed(x):
 			currentShortcut.setEnabled(False)
 			currentShortcut.setParent(cast(QWidget, None))
@@ -382,7 +383,7 @@ class ShortcutMixin:
 
 
 class UndoBlockableMixin:
-	def __init__(self, *args, **kwargs):
+	def __init__(self, *args, **kwargs) -> None:
 		super(UndoBlockableMixin, self).__init__(*args, **kwargs)
 		self._undoRedoEnabled: bool = True
 
@@ -434,7 +435,7 @@ class CatScalableWidgetMixin:
 		def parentWidget(self) -> Optional[QWidget]: ...
 		def font(self) -> QFont: ...
 
-	def __init__(self, *args, **kwargs):
+	def __init__(self, *args, **kwargs) -> None:
 		super(CatScalableWidgetMixin, self).__init__(*args, **kwargs)
 		self._scale: float = 1.
 		self._margins: Margins = self.defaultMargins
@@ -484,11 +485,11 @@ class CatScalableWidgetMixin:
 		top = contentRect.y() + int(0.5 + (contentRect.height() - self.getDefaultIconSize().height()) / 2)
 		return top
 
-	def getDefaultTextHeight(self, font: QFont = None) -> int:
+	def getDefaultTextHeight(self, font: QFont | None = None) -> int:
 		font = font or (self.parentWidget() or self).font()
 		return QFontMetrics(font).height()
 
-	def getTextSize(self, text: Union[str, QStaticText], font: QFont = None) -> QSize:
+	def getTextSize(self, text: Union[str, QStaticText], font: QFont | None = None) -> QSize:
 		if isinstance(text, str):
 			font = font or (self.parentWidget() or self).font()
 			textSize = QFontMetrics(font).size(Qt.TextShowMnemonic, text)
@@ -496,12 +497,12 @@ class CatScalableWidgetMixin:
 			textSize = text.size().toSize()
 		return textSize
 
-	def getTextTop(self, rect: QRect, font: QFont = None) -> int:
+	def getTextTop(self, rect: QRect, font: QFont | None = None) -> int:
 		contentRect = rect.marginsRemoved(self.qMargins)
 		top = centerOfRect(contentRect).y() - self.getDefaultTextHeight(font) // 2
 		return top
 
-	def getDefaultContentSize(self, allText: Union[str, QStaticText], iconsCount: float = 0, paddingsCount: int = 0, font: QFont = None) -> QSize:
+	def getDefaultContentSize(self, allText: Union[str, QStaticText], iconsCount: float = 0, paddingsCount: int = 0, font: QFont | None = None) -> QSize:
 		textsSize = self.getTextSize(allText, font)
 		iconSize = self.getDefaultIconSize()
 		paddingWidth = self.getDefaultIconPadding() * paddingsCount
@@ -510,7 +511,7 @@ class CatScalableWidgetMixin:
 		contentWidth = textsSize.width() + int(iconSize.width() * iconsCount) + paddingWidth
 		return QSize(contentWidth, contentHeight)
 
-	def getDefaultMinimumSize(self, font: QFont = None) -> QSize:
+	def getDefaultMinimumSize(self, font: QFont | None = None) -> QSize:
 		textHeight = self.getDefaultTextHeight(font)
 		iconSize = self.getDefaultIconSize()
 
@@ -519,7 +520,7 @@ class CatScalableWidgetMixin:
 		mg = self.qMargins
 		return QSize(contentWidth, contentHeight).grownBy(mg)
 
-	def getDefaultSize(self, allText: Union[str, QStaticText], iconsCount: float = 0, paddingsCount: int = 0, font: QFont = None) -> QSize:
+	def getDefaultSize(self, allText: Union[str, QStaticText], iconsCount: float = 0, paddingsCount: int = 0, font: QFont | None = None) -> QSize:
 		contentSize = self.getDefaultContentSize(allText, iconsCount, paddingsCount, font)
 		mg = self.qMargins
 		return contentSize.grownBy(mg)
@@ -534,7 +535,7 @@ class CatScalableWidgetMixin:
 		self.updateGeometry()
 
 	@MethodCallCounter(enabled=False)
-	def updateScaleFromFontMetrics(self, font: QFont = None) -> None:
+	def updateScaleFromFontMetrics(self, font: QFont | None = None) -> None:
 		baseDPI = 96.0  # 72 | 96 | 120 | 150
 		baseFontSize = 10.0
 		baseScale = 1.0
@@ -571,7 +572,7 @@ class CatFramedWidgetMixin:
 		def update(self) -> None: ...
 		def layout(self) -> QLayout: ...
 
-	def __init__(self, *args, **kwargs):
+	def __init__(self, *args, **kwargs) -> None:
 		super(CatFramedWidgetMixin, self).__init__(*args, **kwargs)
 		self._cornerRadius: float = DEFAULT_PANEL_CORNER_RADIUS
 		self._roundedCorners: RoundedCorners = CORNERS.ALL
@@ -663,13 +664,13 @@ class CatFramedWidgetMixin:
 			-ol[2], -ol[3],
 		)
 
-	def getBorderPath(self, rect: QRect, radiusDelta: float = 0., corners: RoundedCorners = None, penWidth: float = None) -> QPainterPath:
+	def getBorderPath(self, rect: QRect, radiusDelta: float = 0., corners: RoundedCorners | None = None, penWidth: float | None = None) -> QPainterPath:
 		radius = max(0., self._cornerRadius * self._scale + radiusDelta)
 		corners = corners if corners is not None else self._roundedCorners
 		return getBorderPath(rect, radius, corners, penWidth)
 
 
-def getBorderPath(rect: QRect, radius: float, corners: RoundedCorners, penWidth: float = None) -> QPainterPath:
+def getBorderPath(rect: QRect, radius: float, corners: RoundedCorners, penWidth: float | None = None) -> QPainterPath:
 	adjust = penWidth / 2 if penWidth is not None else 0.5
 	adjustedRect = QRectF(rect).adjusted(adjust, adjust, -adjust, -adjust)
 	return _getBorderPath(adjustedRect, radius, corners)
@@ -742,13 +743,13 @@ def getBorderPen(brush: QBrush, borderWidth: float = 1.) -> QPen:
 	return pen
 
 
-def paintFramedWidgetBkg(p: QPainter, bkgBrush: QBrush, border1: tuple[QPainterPath, QPen], *borders: tuple[QPainterPath, QPen]) -> None:
+def paintFramedWidgetBkg(p: QPainter, bkgBrush: QBrush | QColor | Qt.BrushStyle, border1: tuple[QPainterPath, QPen], *borders: tuple[QPainterPath, QPen]) -> None:
 	paintPath(p, bkgBrush, *border1)
 	for border2 in borders:
 		paintPath(p, Qt.NoBrush, *border2)
 
 
-def paintPath(p: QPainter, bkgBrush: QBrush, path: QPainterPath, borderPen: QPen) -> None:
+def paintPath(p: QPainter, bkgBrush: QBrush | QColor | Qt.BrushStyle, path: QPainterPath, borderPen: QPen) -> None:
 	p.setPen(borderPen)
 	p.setBrush(bkgBrush)
 	p.drawPath(path)
@@ -762,7 +763,7 @@ def paintIcon(p: QPainter, icon: QIcon, iconRect: QRect, mode: QIcon.Mode, isOn:
 	))
 
 
-def paintText(p: QPainter, text: str | QStaticText, textRect: QRect, textPen: QBrush | QColor | QPen, font: QFont, isDefault: bool) -> None:
+def paintText(p: QPainter, text: str | QStaticText, textRect: QRect | QRectF, textPen: QBrush | QColor | QPen, font: QFont, isDefault: bool) -> None:
 	if isDefault:
 		font = QFont(font)
 		font.setWeight(font.weight() + 7)
@@ -779,7 +780,7 @@ def paintText(p: QPainter, text: str | QStaticText, textRect: QRect, textPen: QB
 		p.drawText(textRect, Qt.TextShowMnemonic, text)
 
 
-def paintSpoilerTriangle(p: QPainter, rect: QRect, brush: QBrush, isOpen: bool) -> None:
+def paintSpoilerTriangle(p: QPainter, rect: QRectF, brush: QBrush, isOpen: bool) -> None:
 	points = getSpoilerTriangle(rect, isOpen)
 	pen = getBorderPen(brush, 1)
 	pen.setMiterLimit(5)
@@ -803,10 +804,10 @@ class CatFramedAreaMixin(CatFramedWidgetMixin, CatScalableWidgetMixin):
 	def getBorderBrushes(self, rect: QRect) -> tuple[QBrush, QBrush, QBrush]:
 		raise NotImplementedError()
 
-	def __init__(self, *args, **kwargs):
+	def __init__(self, *args, **kwargs) -> None:
 		super(CatFramedAreaMixin, self).__init__()
-		self._roundedCorners = CORNERS.NONE
-		self._colorPalette = palettes.windowPanelColorPalette
+		self._roundedCorners: RoundedCorners = CORNERS.NONE
+		self._colorPalette: ColorPalette = palettes.windowPanelColorPalette
 		self._drawFocusFrame: bool = True
 
 		if CAT_FRAMED_SCROLL_AREA_USE_PIXMAP:
@@ -1101,7 +1102,7 @@ def updatePalette(palette: QPalette, newColors: BaseColors):
 	setColor(palette, palette.LinkVisited,     newColors.LinkVisited)
 
 
-def setColor(palette: QPalette, role: QPalette.ColorRole, color: QColor, disabled: QColor = None, inactive: QColor = None) -> None:
+def setColor(palette: QPalette, role: QPalette.ColorRole, color: QColor, disabled: QColor | None = None, inactive: QColor | None = None) -> None:
 	palette.setColor(palette.Active, role, color)
 	palette.setColor(palette.Disabled, role, disabled or color)
 	palette.setColor(palette.Inactive, role, inactive or color)
@@ -1115,10 +1116,10 @@ def borderColor2FromBorderColor(c1: QColor) -> QColor:
 @dataclass()  # slots=True)
 class ColorSet:
 	getNormal: Callable[[], QColor]
-	getDisabled: Callable[[], QColor] = ...
-	getInactive: Callable[[], QColor] = ...
-	getSelected: Callable[[], QColor] = ...
-	getOn: Optional[Callable[[], QColor]] = ...
+	getDisabled: Callable[[], QColor] = ...   # type: ignore
+	getInactive: Callable[[], QColor] = ...  # type: ignore
+	getSelected: Callable[[], QColor] = ...  # type: ignore
+	getOn: Optional[Callable[[], QColor]] = ...  # type: ignore
 
 	def __post_init__(self):
 		self.getDisabled = self.getNormal if self.getDisabled is ... else self.getDisabled
@@ -1139,10 +1140,10 @@ class ColorPalette:
 	borderColor: ColorSet = field()
 	textColor: ColorSet = field()
 	iconColor: ColorSet = field()
-	backgroundColor2: ColorSet = field(default=...)
+	backgroundColor2: ColorSet = field(default=...)  # type: ignore
 	borderColor2: ColorSet = field(default_factory=lambda: CLEAR_COLOR_COLOR_SET)
 	indicatorColor: ColorSet = field(default_factory=lambda: CLEAR_COLOR_COLOR_SET)
-	indicatorColor2: ColorSet = field(default=...)
+	indicatorColor2: ColorSet = field(default=...)  # type: ignore
 	indicatorBorderColor: ColorSet = field(default_factory=lambda: CLEAR_COLOR_COLOR_SET)
 	indicatorBorderColor2: ColorSet = field(default_factory=lambda: CLEAR_COLOR_COLOR_SET)
 
@@ -1489,7 +1490,7 @@ class CatStyledWidgetMixin:
 		else:
 			return False
 
-	def __init__(self, *args, **kwargs):
+	def __init__(self, *args, **kwargs) -> None:
 		super(CatStyledWidgetMixin, self).__init__(*args, **kwargs)
 		self._neverInactive: bool = False
 		self._highlightOnHover: bool = False
