@@ -38,21 +38,25 @@ onCrash = __onCrash__
 
 
 if True:  # Anything, Nothing, Everything
-	class Anything:
+	class _SingletonTypeMetaclass(type):
+		def __instancecheck__(self, instance) -> bool:
+			return instance is self
+
+	class Anything(metaclass=_SingletonTypeMetaclass):
 		""" Denotes Anyhing (=^= not None, at least one)."""
-		def __new__(cls, *args, **kwargs) -> Type[Anything] | Anything:
+		def __new__(cls, *args, **kwargs) -> Type[Anything] | Anything:  # type: ignore
 			return Anything
 
 
-	class Nothing:
+	class Nothing(metaclass=_SingletonTypeMetaclass):
 		""" Denotes Nothing (non existent, not even None)."""
-		def __new__(cls, *args, **kwargs) -> Type[Nothing] | Nothing:
+		def __new__(cls, *args, **kwargs) -> Type[Nothing] | Nothing:  # type: ignore
 			return Nothing
 
 
-	class Everything:
+	class Everything(metaclass=_SingletonTypeMetaclass):
 		""" Denotes All (not just Some)."""
-		def __new__(cls, *args, **kwargs) -> Type[Everything] | Everything:
+		def __new__(cls, *args, **kwargs) -> Type[Everything] | Everything:  # type: ignore
 			return Everything
 
 SINGLETON_FIELD = '__singleton__'
