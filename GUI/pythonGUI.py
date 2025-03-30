@@ -893,13 +893,23 @@ class PythonGUI(CatScalableWidgetMixin):
 
 			profiler.enabled = PROFILING_ENABLED
 			if profiler.enabled:
-				self._logNPrint(f"Profiling...")
+				self._logNPrint("Profiling...")
 			self.updateScaleFromFontMetrics()
 			# draw GUI:
 			with profiler, self.waitCursor(), self.updatesDisabled(), self._redrawRecursionDepth():
 				with self.currentLayout:
 					self.OnGUI(self)
 				assert len(self._widgetStack) == 0
+
+				if ADD_LAYOUT_INFO_AS_TOOL_TIP and self.isLastRedraw:
+					with self.timedAction('adding layout info as tooltip', details=self.loggingIdentifier):
+						self._addLayoutInfoAsToolTipToAllWidgets(self.host)
+
+	def _addLayoutInfoAsToolTipToAllWidgets(self, item: QWidget) -> None:
+		item.setToolTip(self.getLayoutInfoAsToolTip(item))
+		children: list[QObject] = item.findChildren(QWidget)
+		for child in children:
+			child.setToolTip(self.getLayoutInfoAsToolTip(child))
 
 	@CrashReportWrapped
 	def redraw(self, cause: Optional[str] = None) -> None:
@@ -986,7 +996,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		except AttributeError:
 			pass
 
-	def addLayoutInfoAsToolTip(self, item: QWidget, kwargs: dict[str, Any]) -> dict[str, Any]:
+	def getLayoutInfoAsToolTip(self, item: QWidget) -> str:
 		infos: list[str] = []
 		try:
 			typeName = type(item).__name__
@@ -1048,7 +1058,8 @@ class PythonGUI(CatScalableWidgetMixin):
 			cm = item.viewportMargins()
 			cm = (cm.left(), cm.top(), cm.right(), cm.bottom())
 			infos.append(f'viewportMargins = {cm}')
-		except AttributeError:
+		except (AttributeError, RuntimeError):
+			# on linux we can also get: "RuntimeError: no access to protected functions or signals for objects not created from Python"
 			pass
 		try:
 			hs = item.layout().horizontalSpacing()
@@ -1111,9 +1122,8 @@ class PythonGUI(CatScalableWidgetMixin):
 				self._addLayoutToolTipInfo(qLayout, 'containing Layout', line='======== ========', infosIO=infos)
 
 		toolTip: str = '\n'.join(infos)
-		kwargsCpy = kwargs.copy()
-		kwargsCpy['tip'] = toolTip
-		return kwargsCpy
+		# toolTip = f"{self.getFontInfoToToolTip(item)}\n{toolTip}"
+		return toolTip
 
 	def _addLayoutToolTipInfo(self, qLayout: QtWidgets.QLayout, nameSuffix: str, *, line: str, infosIO: list[str]) -> None:
 		if isinstance(qLayout, QtWidgets.QGridLayout):
@@ -1143,7 +1153,7 @@ class PythonGUI(CatScalableWidgetMixin):
 			except AttributeError:
 				pass
 
-	def addFontInfoToToolTip(self, item: QWidget, kwargs: dict[str, Any]) -> dict[str, Any]:
+	def getFontInfoToToolTip(self, item: QWidget) -> str:
 		infos: list[str] = []
 		try:
 			typeName = type(item).__name__
@@ -1157,17 +1167,9 @@ class PythonGUI(CatScalableWidgetMixin):
 		except AttributeError:
 			pass
 
-		toolTip: str = '\n'.join(infos)
-		kwargsCpy = kwargs.copy()
-		if oldTip := kwargsCpy.get('tip', None):
-			toolTip = f'{toolTip}\n{oldTip}'
-		kwargsCpy['tip'] = toolTip
-		return kwargsCpy
+		return '\n'.join(infos)
 
 	def addkwArgsToItem(self, item: QObject, kwargs: dict[str, Any]):
-		if ADD_LAYOUT_INFO_AS_TOOL_TIP:
-			kwargs = self.addLayoutInfoAsToolTip(item, kwargs)
-		# kwargs = self.addFontInfoToToolTip(item, kwargs)
 		self.handleBasicKwArgs(item, kwargs)
 
 		if self.handleKWArgsCache(item, kwargs):
