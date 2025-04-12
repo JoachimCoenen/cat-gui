@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from collections import UserDict
 from copy import deepcopy
-from typing import Any, ClassVar, Generic, Iterable, Mapping, Tuple, TypeVar, Union
+from typing import Any, ClassVar, Generic, Iterable, Mapping, Tuple, TypeVar, Union, AbstractSet
 
 
 def notimplemented(self, *args, **kwargs):
@@ -340,7 +340,7 @@ class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
 
     __or__ = __add__
 
-    def __sub__(self, other: Union[Mapping[_TK, _TV_co], Iterable[Tuple[_TK, _TV_co]]]) -> FrozenDict[_TK, _TV_co]:
+    def __sub__(self, other: Union[Mapping[_TK, _TV_co], AbstractSet[_TK]]) -> FrozenDict[_TK, _TV_co]:
         r"""
         The method will create a new `frozendict`, result of the subtraction
         by `other`.
@@ -354,20 +354,10 @@ class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
 
         try:
             iter(other)
-        except Exception:
-            raise TypeError(f"Unsupported operand type(s) for -: `{self.__class__.__name__}` and `{other.__class__.__name__}`") from None
+        except TypeError:
+            return NotImplemented
 
-        if hasattr(other, "gi_running"):
-            # we have an iterator
-            true_other = dict(other)
-        elif hasattr(other, 'items') and callable(other.items):
-            true_other = other.items()
-        else:
-            true_other = other
-
-        res = dict(item for item in self.items() if item not in true_other)
-
-        return self.__class__(res)
+        return self.__class__(item for item in self.items() if item[0] not in other)
 
     def __and__(self, other: Union[Mapping[_TK, _TV_co], Iterable[Tuple[_TK, _TV_co]]]) -> FrozenDict[_TK, _TV_co]:
         r"""

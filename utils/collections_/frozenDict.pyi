@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Generic, Iterable, Iterator, Mapping, overload, Tuple, TypeVar, Union
+from typing import AbstractSet, Any, ClassVar, Generic, Iterable, Iterator, Mapping, overload, Tuple, TypeVar, Union
 
 _TT = TypeVar('_TT')
 _TK = TypeVar('_TK')  # Key type.
@@ -121,7 +121,7 @@ class FrozenDict(Mapping[_TK, _TV_co], Generic[_TK, _TV_co]):
         to the old frozendict updated with the other object.
         """
 
-    def __sub__(self, other: Union[Mapping[_TK, _TV_co], Iterable[Tuple[_TK, _TV_co]]]) -> FrozenDict[_TK, _TV_co]:
+    def __sub__(self, other: Union[Mapping[_TK, _TV_co], AbstractSet[_TK]]) -> FrozenDict[_TK, _TV_co]:
         r"""
         The method will create a new `frozendict`, result of the subtraction
         by `other`.
