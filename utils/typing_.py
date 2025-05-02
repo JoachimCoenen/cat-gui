@@ -1,6 +1,6 @@
 import types
 import typing
-from typing import AbstractSet, NamedTuple, _type_repr, Protocol
+from typing import AbstractSet, Any, Iterable, NamedTuple, Protocol, TypeAlias, _type_repr
 
 
 typeRepr = _type_repr
@@ -42,9 +42,24 @@ def replace_tuple(obj: NamedTuple, /, **changes):
 override = typing.override
 
 
-class SupportsItems[TV, TK](Protocol):
+class SupportsItems[TK, TV](Protocol):
 	def items(self) -> AbstractSet[tuple[TK, TV]]: ...
 
+
+class SupportsKeysAndGetItem[TV, TK](Protocol):
+	def keys(self) -> Iterable[TK]: ...
+	def __getitem__(self, key: TK, /) -> TV: ...
+
+
+class SupportsDunderLT[TT](Protocol):
+	def __lt__(self, other: TT, /) -> bool: ...
+
+
+class SupportsDunderGT[TT](Protocol):
+	def __gt__(self, other: TT, /) -> bool: ...
+
+
+SupportsRichComparison: TypeAlias = SupportsDunderLT[Any] | SupportsDunderGT[Any]
 
 __all__ = [
 	'typeRepr',
@@ -54,4 +69,8 @@ __all__ = [
 	'replace_tuple',
 	'override',
 	'SupportsItems',
+	'SupportsKeysAndGetItem',
+	'SupportsDunderLT',
+	'SupportsDunderGT',
+	'SupportsRichComparison',
 ]

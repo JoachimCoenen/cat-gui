@@ -6,7 +6,9 @@ from __future__ import annotations
 
 from collections import UserDict
 from copy import deepcopy
-from typing import Any, ClassVar, Generic, Iterable, Mapping, Tuple, TypeVar, Union, AbstractSet
+from typing import Any, ClassVar, Iterable, Mapping, AbstractSet, overload, Callable, Self
+
+from cat.utils.typing_ import SupportsKeysAndGetItem, SupportsItems, SupportsRichComparison
 
 
 def notimplemented(self, *args, **kwargs):
@@ -14,7 +16,7 @@ def notimplemented(self, *args, **kwargs):
     Not implemented.
     """
     
-    raise NotImplementedError(f"`{self.__class__.__name__}` object is immutable.")
+    raise NotImplementedError(f"`{type(self).__name__}` object is immutable.")
 
 
 def sortMapItemsByValue(item):
@@ -23,11 +25,8 @@ def sortMapItemsByValue(item):
 
 _sentinel = object()
 
-_TK = TypeVar('_TK')  # Key type.
-_TV_co = TypeVar('_TV_co', covariant=True)  # Value type covariant containers.
 
-
-class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
+class FrozenDict[TK, TV](UserDict[TK, TV]):
     r"""
     A simple immutable dictionary.
 
@@ -44,6 +43,16 @@ class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
     )
 
     EMPTY: ClassVar[FrozenDict[Any, Any]]
+
+    # Signature of `dict.fromkeys` should be kept identical to `fromkeys` methods of `dict`/`OrderedDict`/`ChainMap`/`UserDict` in `collections`
+    # the true signature of `dict.fromkeys` is not expressible in the current type system.
+    # See #3800 & https://github.com/python/typing/issues/548#issuecomment-683336963.
+    @classmethod  # type: ignore
+    @overload
+    def fromkeys(cls, iterable: Iterable[TK], value: None = None) -> UserDict[TK, Any | None]: ...
+    @classmethod
+    @overload
+    def fromkeys(cls, iterable: Iterable[TK], value: TV) -> UserDict[TK, TV]: ...
 
     @classmethod
     def fromkeys(cls, *args, **kwargs):
@@ -96,6 +105,13 @@ class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
         self.initialized = initialized
         return self
 
+    @overload
+    def __init__(self, **kwargs: TV) -> None: ...
+    @overload
+    def __init__(self, _dict: Mapping[TK, TV], **kwargs: TV) -> None: ...
+    @overload
+    def __init__(self, iterable: Iterable[tuple[TK, TV]], **kwargs: TV) -> None: ...
+
     def __init__(self, *args, **kwargs):
         r"""
         Almost identical to dict.__init__(). It can't be reinvoked.
@@ -105,7 +121,7 @@ class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
             self.initialized = 1
             return
 
-        cls = self.__class__
+        cls = type(self)
 
         if self.initialized != 3 and self is cls.EMPTY:
             return
@@ -114,7 +130,7 @@ class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
             # object is immutable, can't be initialized twice
             notimplemented(self)
 
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)  # type: ignore
 
         self._hash = None
         self.initialized = 1
@@ -127,13 +143,13 @@ class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
 
     def get_deep(self, *args, default=_sentinel):
         r"""
-        Get a nested element of the `frozendict`.
+        Get a nested element of the `FrozenDict`.
 
         The method accepts multiple arguments or a single one. If a single
         arguments is passed, it must be an iterable. These represent the
         keys or indexes of the nested element.
 
-        The method first tries to get the value v1 of `frozendict` using the
+        The method first tries to get the value v1 of `FrozenDict` using the
         first key. If it found v1 and there's no other key, v1 is
         returned. Otherwise, the method tries to retrieve the value from v1
         associated to the second key/index, and so on.
@@ -216,7 +232,7 @@ class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
 
         return hash_res
 
-    def __hash__(self, *args, **kwargs):
+    def __hash__(self) -> int:
         r"""
         Calculates the hash if all values are hashable, otherwise raises a
         TypeError.
@@ -229,139 +245,107 @@ class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
 
         return _hash
 
-    def __repr__(self, *args, **kwargs):
+    def __repr__(self) -> str:
         r"""
         Identical to dict.__repr__().
         """
 
-        body = super().__repr__(*args, **kwargs)
+        body = super().__repr__()
+        return f"{type(self).__name__}({body})"
 
-        return f"{self.__class__.__name__}({body})"
-
-    def copy(self) -> FrozenDict[_TK, _TV_co]:
+    def copy(self) -> Self:
         r"""
         Return the object itself, as it's an immutable.
         """
         return self
 
-    def __copy__(self, *args, **kwargs) -> FrozenDict[_TK, _TV_co]:
+    def __copy__(self, *args, **kwargs) -> Self:
         r"""
         See copy().
         """
+        return self
 
-        return self.copy()
-
-    def __deepcopy__(self, *args, **kwargs) -> FrozenDict[_TK, _TV_co]:
+    def __deepcopy__(self, memo: dict[int, Any]) -> FrozenDict[TK, TV]:
         r"""
         If hashable, see copy(). Otherwise, it returns a deepcopy.
         """
 
         _hash = self.hash_no_errors()
-
         if _hash == -1:
-            tmp = deepcopy(dict(self))
-
-            return self.__class__(tmp)
+            tmp = deepcopy(dict(self), memo)
+            return type(self)(tmp)
 
         return self.copy()
 
-    def __reduce__(self, *args, **kwargs):
+    def __reduce__(self) -> Any:
         r"""
         Support for `pickle`.
         """
+        return type(self), (dict(self), )
 
-        return self.__class__, (dict(self), )
+    @overload
+    def sorted(self, *, key: None = None, reverse: bool = False) -> FrozenDict[TK, TV]: ...
+    @overload
+    def sorted(self, *, key: Callable[[TK], SupportsRichComparison], reverse: bool = False) -> FrozenDict[TK, TV]: ...
 
-    def sorted(self, *args, by="keys", **kwargs):
+    def sorted(self, *, key: Callable[[TK], SupportsRichComparison] | None = None, reverse: bool = False) -> FrozenDict[TK, TV]:
         r"""
-        Return a new `frozendict`, with the element insertion sorted.
-        The signature is the same of builtin `sorted()` function, except for
-        the additional parameter `by`, that is "keys" by default and can also
-        be "values" and "items". So the resulting `frozendict` can be sorted
-        by keys, values or items.
-
-        If you want more complicated sorts, see the documentation of
-        `sorted()`. Take into mind that the parameters passed to the `key`
-        function are the keys of the `frozendict` if `by == "keys"`, and are
-        the items otherwise.
-
-        PS: Note that sort by keys and items are identical. The only
-        difference is when you want to customize the sorting passing a custom
-        `key` function. You *could* achieve the same result using
-        `by="values"`, since also sorting by values passes the items to the
-        key function. But this is an implementation detail and you should not
-        rely on it.
+        Return a new `FrozenDict`, with the element insertion sorted.
+        The signature is the same of builtin `sorted()` function. The resulting
+        `FrozenDict` is sorted by keys.
         """
 
         if not self:
             return self
 
-        sort_by_keys = by == "keys"
-        sort_by_values = by == "values"
-
-        if sort_by_keys:
-            tosort = self.keys()
-        elif sort_by_values:
-            tosort = self.items()
-        elif by == "items":
-            tosort = self.items()
+        if key is None:
+            def actual_key(item: tuple[TK, TV]) -> SupportsRichComparison:
+                return item[0]   # type: ignore
         else:
-            raise ValueError(f"Unexpected value for parameter `by`: {by}")
+            def actual_key(item: tuple[TK, TV]) -> SupportsRichComparison:
+                return key(item[0])
 
-        if sort_by_values:
-            kwargs.setdefault("key", sortMapItemsByValue)
+        it_sorted = sorted(self.items(), key=actual_key, reverse=reverse)
 
-        it_sorted = sorted(tosort, *args, **kwargs)
-
-        if it_sorted == list(tosort):
+        if it_sorted == list(self.keys()):
             return self
 
-        if sort_by_keys:
-            res = {k: self[k] for k in it_sorted}
-        else:
-            res = it_sorted
+        return type(self)(it_sorted)
 
-        return self.__class__(res)
+    @overload
+    def __add__(self, other: SupportsKeysAndGetItem[TK, TV] | Iterable[tuple[TK, TV]]) -> FrozenDict[TK, TV]: ...
+    @overload
+    def __add__[TK2, TV2](self, other: SupportsKeysAndGetItem[TK2, TV2] | Iterable[tuple[TK2, TV2]]) -> FrozenDict[TK | TK2, TV | TV2]: ...
 
-    def __add__(self, other: Union[Mapping[_TK, _TV_co], Iterable[Tuple[_TK, _TV_co]]]) -> FrozenDict[_TK, _TV_co]:
+    def __add__[TK2, TV2](self, other: SupportsKeysAndGetItem[TK2, TV2] | Iterable[tuple[TK2, TV2]]) -> FrozenDict[TK | TK2, TV | TV2]:
         r"""
-        If you add a dict-like object, a new frozendict will be returned, equal
-        to the old frozendict updated with the other object.
+        If you add a dict-like object, a new `FrozenDict` will be returned, equal
+        to the old `FrozenDict` updated with the other object.
         """
 
-        tmp = dict(self)
+        tmp: dict[TK | TK2, TV | TV2] = dict(self)  # type: ignore
+        tmp.update(other)  # type: ignore
+        return type(self)(tmp)
 
-        try:
-            tmp.update(other)
-        except Exception:
-            raise TypeError(f"Unsupported operand type(s) for +: `{self.__class__.__name__}` and `{other.__class__.__name__}`") from None
+    __or__ = __add__  # type: ignore
 
-        return self.__class__(tmp)
-
-    __or__ = __add__
-
-    def __sub__(self, other: Union[Mapping[_TK, _TV_co], AbstractSet[_TK]]) -> FrozenDict[_TK, _TV_co]:
+    def __sub__[TV2](self, other: Mapping[TK, TV2] | AbstractSet[TK]) -> FrozenDict[TK, TV]:
         r"""
-        The method will create a new `frozendict`, result of the subtraction
+        The method will create a new `FrozenDict`, result of the subtraction
         by `other`.
 
         If `other` is a `dict`-like, the result will have the items of the
-        `frozendict` without the keys that are in `other`.
+        `FrozenDict` without the keys that are in `other`.
 
         If `other` is another type of iterable, the result will have the
-        items of `frozendict` without the keys that are in `other`.
+        items of `FrozenDict` without the keys that are in `other`.
         """
 
-        try:
-            iter(other)
-        except TypeError:
-            return NotImplemented
+        return type(self)(item for item in self.items() if item[0] not in other)
 
-        return self.__class__(item for item in self.items() if item[0] not in other)
-
-    def __and__(self, other: Union[Mapping[_TK, _TV_co], Iterable[Tuple[_TK, _TV_co]]]) -> FrozenDict[_TK, _TV_co]:
+    def __and__(self, other: SupportsItems[TK, TV] | Iterable[TK]) -> FrozenDict[TK, TV]:
         r"""
-        Returns a new `frozendict`, that is the intersection between `self`
+        Returns a new `FrozenDict`, that is the intersection between `self`
         and `other`.
 
         If `other` is a `dict`-like object, the intersection will contain
@@ -371,48 +355,45 @@ class FrozenDict(UserDict[_TK, _TV_co], Generic[_TK, _TV_co]):
         the items of `self` which keys are in `other`.
 
         Iterables of pairs are *not* managed differently. This is for
-        consistency.
+        consistency reasons.
 
         Beware! The final order is dictated by the order of `other`. This
-        allows the coder to change the order of the original `frozendict`.
+        allows the coder to change the order of the original `FrozenDict`.
 
-        The last two behaviors breaks voluntarly the `dict.items()` API, for
-        consistency and practical reasons.
+        The last two behaviors breaks the `dict.items()` API, for consistency
+        and practical reasons.
         """
 
-        try:
-            if hasattr(other, 'items') and callable(other.items):
-                res = {k: v for k, v in other.items() if (k, v) in self.items()}
-            else:
-                res = {k: self[k] for k in other if k in self}
-        except TypeError:
-            raise TypeError(f"Unsupported operand type(s) for &: `{self.__class__.__name__}` and `{other.__class__.__name__}`") from None
+        if hasattr(other, 'items') and callable(other.items):
+            res = {k: v for k, v in other.items() if (k, v) in self.items()}
+        elif hasattr(other, '__iter__') and callable(other.__iter__):
+            res = {k: self[k] for k in other if k in self}
+        else:
+            return NotImplemented
 
-        return self.__class__(res)
+        return type(self)(res)  # type: ignore
 
-    def isdisjoint(self, other: Mapping[_TK, _TV_co]) -> bool:
+    def isdisjoint(self, other: SupportsItems[TK, TV]) -> bool:
         r"""
         Returns True if `other` dict-like object has no items in common,
-        otherwise False. Equivalent to `not (frozendict & dict_like)`
+        otherwise False. Equivalent to `not (`FrozenDict` & dict_like)`
         """
 
-        if not hasattr(other, 'items') or not callable(other.items):
-            raise TypeError(f"Unsupported operand type(s) for &: `{self.__class__.__name__}` and `{other.__class__.__name__}`") from None
+        if hasattr(other, 'items') and callable(other.items):
+            return not (self & other)
         else:
-            res = self & other
-
-        return not res
+            return NotImplemented
 
 
-FrozenDict.clear = notimplemented
-FrozenDict.pop = notimplemented
-FrozenDict.popitem = notimplemented
-FrozenDict.setdefault = notimplemented
-FrozenDict.update = notimplemented
-FrozenDict.__delitem__ = notimplemented
-FrozenDict.__setitem__ = notimplemented
-FrozenDict.__delattr__ = notimplemented
-FrozenDict.__setattr__ = notimplemented
+FrozenDict.clear = notimplemented  # type: ignore
+FrozenDict.pop = notimplemented  # type: ignore
+FrozenDict.popitem = notimplemented  # type: ignore
+FrozenDict.setdefault = notimplemented  # type: ignore
+FrozenDict.update = notimplemented  # type: ignore
+FrozenDict.__delitem__ = notimplemented  # type: ignore
+FrozenDict.__setitem__ = notimplemented  # type: ignore
+FrozenDict.__delattr__ = notimplemented  # type: ignore
+FrozenDict.__setattr__ = notimplemented  # type: ignore
 
 FrozenDict.EMPTY = FrozenDict()
 
@@ -423,9 +404,9 @@ __all__ = [
 
 
 if __name__ == '__main__':
-    fr1 = FrozenDict({"ffrr11": 75})
-    fr2 = FrozenDict({"ffrr11": 75})
-    fr3 = FrozenDict({"ffrr11": 75, "ffrr33": 75})
+    fr1: FrozenDict[str, int] = FrozenDict({"ffrr11": 75})
+    fr2: FrozenDict[str, int] = FrozenDict({"ffrr11": 75})
+    fr3: FrozenDict[str, int] = FrozenDict({"ffrr11": 75, "ffrr33": 75})
     print(fr1)
     print(fr2)
     print(fr3)
