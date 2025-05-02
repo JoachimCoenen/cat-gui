@@ -644,7 +644,7 @@ class CatScrollArea(CatFramedAbstractScrollAreaMixin, QScrollArea, CatStyledWidg
 		widget = CatPanel()
 		# widget.setRoundedCorners(CORNERS.NONE)
 		# widget.setOverlap((1, 1, 1, 1))
-		# widget.setWindowPanel(False)
+		widget.setWindowPanel(True)
 		widget.setLayout(SeamlessQGridLayout())
 		widget.layout().setContentsMargins(0, 0, 0, 0)
 		self.setWidget(widget)
