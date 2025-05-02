@@ -30,10 +30,12 @@ from ...GUI.framelessWindow.framelesshelper import BorderSize, FramelessHelper
 framelessHelper = FramelessHelper()
 
 
-def registerWindow(window: QWindow, *, titleBar: list[QWidget], ignoredObjects: list[QWidget], borderSize: Optional[BorderSize] = None, borderMargin: Optional[BorderSize] = None, fixedSize: bool = False) -> None:
+def registerWindow(window: QWindow, *, titleBar: list[QWidget], ignoredObjects: list[QWidget], borderSize: Optional[BorderSize | int] = None, borderMargin: Optional[BorderSize] = None, fixedSize: bool = False) -> None:
 	assert window
 	if not window:
 		return
+	if isinstance(borderSize, int):
+		borderSize = (borderSize, borderSize, borderSize, borderSize)
 	framelessHelper.registerWindow(window, titleBar=titleBar, ignoredObjects=ignoredObjects, borderSize=borderSize, borderMargin=borderMargin, fixedSize=fixedSize)
 
 
@@ -44,8 +46,17 @@ def deregisterWindow(window: QWindow) -> None:
 	framelessHelper.deregisterWindow(window)
 
 
-def updateIgnoredObjects(window: QWindow, ignoredObjects: list[QWidget]):
+def updateIgnoredObjects(window: QWindow, ignoredObjects: list[QWidget]) -> None:
 	assert window
 	if not window:
 		return
 	framelessHelper.updateIgnoredObjects(window, ignoredObjects)
+
+
+def updateBorder(window: QWindow, *, borderSize: BorderSize | int, borderMargin: BorderSize, fixedSize: bool | None = None) -> None:
+	assert window
+	if not window:
+		return
+	if isinstance(borderSize, int):
+		borderSize = (borderSize, borderSize, borderSize, borderSize)
+	framelessHelper.updateBorder(window, borderSize, borderMargin, fixedSize)

@@ -43,6 +43,7 @@ def getMousePositions(e: QMouseEvent) -> QPointF:
 
 BorderSize = tuple[int, int, int, int]
 
+
 @dataclass
 class WindowFrameInfo:
 	titleBar: list[QWidget]
@@ -50,15 +51,7 @@ class WindowFrameInfo:
 	borderSize: BorderSize
 	borderMargin: BorderSize
 	isFixedSize: bool = False
-	totalBorderWidth: BorderSize = field(default=None, init=False)
 
-	def __post_init__(self):
-		self.totalBorderWidth = (
-			self.borderSize[0] + self.borderMargin[0],
-			self.borderSize[1] + self.borderMargin[1],
-			self.borderSize[2] + self.borderMargin[2],
-			self.borderSize[3] + self.borderMargin[3],
-		)
 
 class FramelessHelper(QObject):
 
@@ -89,11 +82,17 @@ class FramelessHelper(QObject):
 			logging.warning("Tried to deregister an unregistered window.")
 		window.removeEventFilter(self)
 
-	def updateIgnoredObjects(self, window: QWindow, ignoredObjects: list[QWidget]):
+	def updateIgnoredObjects(self, window: QWindow, ignoredObjects: list[QWidget]) -> None:
 		frameInfo = self.getFrameInfo(window)
 		if frameInfo is not None:
 			frameInfo.ignoredObjects = ignoredObjects
 
+	def updateBorder(self, window: QWindow, borderSize: BorderSize, borderMargin: BorderSize, fixedSize: bool | None) -> None:
+		frameInfo = self.getFrameInfo(window)
+		if frameInfo is not None:
+			frameInfo.borderSize = borderSize
+			frameInfo.borderMargin = borderMargin
+			frameInfo.isFixedSize = fixedSize if fixedSize is not None else frameInfo.isFixedSize
 
 	def getFrameInfo(self, window: QWindow) -> Optional[WindowFrameInfo]:
 		frameInfo = self._registeredWindows.get(window, None)
@@ -113,16 +112,16 @@ class FramelessHelper(QObject):
 
 		mousePos = window.mapFromGlobal(globalMousePos.toPoint())
 
-		borderSize = frameInfo.totalBorderWidth
+		borderSize = frameInfo.borderSize
 		borderMargin = frameInfo.borderMargin
 		edges = Qt.Edges()
-		if borderSize[0] >= mousePos.x() > borderMargin[0]:
+		if borderSize[0] >= mousePos.x() - borderMargin[0] > 0:
 			edges |= Qt.LeftEdge
-		if borderSize[1] >= mousePos.y() > borderMargin[1]:
+		if borderSize[1] >= mousePos.y() - borderMargin[1] > 0:
 			edges |= Qt.TopEdge
-		if borderSize[2] >= window.width() - mousePos.x() > borderMargin[2]:
+		if borderSize[2] >= window.width() - mousePos.x() - borderMargin[2] > 0:
 			edges |= Qt.RightEdge
-		if borderSize[3] >= window.height() - mousePos.y() > borderMargin[3] :
+		if borderSize[3] >= window.height() - mousePos.y() - borderMargin[3] > 0:
 			edges |= Qt.BottomEdge
 
 		return edges
