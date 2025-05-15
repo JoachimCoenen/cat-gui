@@ -49,8 +49,9 @@ class WeakUnhashableKeyDict[_TK, _TT](MutableMapping[_TK, _TT]):
 		self._values.__setitem__(_id, value)
 
 	def __delitem__(self, key: _TK) -> None:
-		self._keys.__delitem__(_Id(key))
+		# first remove from _values, only then remove from _keys, because the entry in _keys keep the entry in _values alive
 		self._values.__delitem__(_Id(key))
+		self._keys.__delitem__(_Id(key))
 
 	def keyrefs(self) -> list[ref[_TK]]:
 		return self._keys.valuerefs()
