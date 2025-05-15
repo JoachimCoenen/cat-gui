@@ -54,14 +54,14 @@ class AutoGUI(PythonGUI):
 		propName = field.name
 		readonly = isReadOnly(field)
 
-		kwargs_ = { name : getValueOrValueOfProp(owner, value) for name, value in kwargs_.items() }
-		kwargs_.update(kwargs)
-		if 'label' in kwargs_ and not hasLabel:
-			del kwargs_['label']
-		elif 'label' not in kwargs_ and hasLabel:
-			kwargs_['label'] = propName
+		kwargs_ = {name : getValueOrValueOfProp(owner, value) for name, value in kwargs_.items()}
+		kwargs.update(kwargs_)
+		if 'label' in kwargs and not hasLabel:
+			del kwargs['label']
+		elif 'label' not in kwargs and hasLabel:
+			kwargs['label'] = propName
 
-		newValue = self.drawDecoratedField(value, type_, decorator, owner, **kwargs_)
+		newValue = self.drawDecoratedField(value, type_, decorator, owner, **kwargs)
 
 		if not readonly:
 			setattr(owner, field.name, newValue)
