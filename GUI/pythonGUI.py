@@ -961,13 +961,17 @@ class PythonGUI(CatScalableWidgetMixin):
 
 				if ADD_LAYOUT_INFO_AS_TOOL_TIP and self.isLastRedraw:
 					with self.timedAction('adding layout info as tooltip', details=self.loggingIdentifier):
-						self._addLayoutInfoAsToolTipToAllWidgets(self.host)
+						self._addLayoutInfoAsToolTipToAllWidgets(self.host, lambda widget: widget.setToolTip("[!LayoutInfoAsToolTip!]\n" + self.getLayoutInfoAsToolTip(widget)))
+				elif not ADD_LAYOUT_INFO_AS_TOOL_TIP and self.isFirstRedraw:
+					with self.timedAction('removing layout info as tooltip', details=self.loggingIdentifier):
+						self._addLayoutInfoAsToolTipToAllWidgets(self.host, lambda widget: widget.setToolTip("") if widget.toolTip().startswith("[!LayoutInfoAsToolTip!]\n") else None)
+			self._cleanup_onInputModifiedSlots()
 
-	def _addLayoutInfoAsToolTipToAllWidgets(self, item: QWidget) -> None:
-		item.setToolTip(self.getLayoutInfoAsToolTip(item))
-		children: list[QObject] = item.findChildren(QWidget)
+	def _addLayoutInfoAsToolTipToAllWidgets(self, item: QWidget, updateTooltip: Callable[[QWidget], None]) -> None:
+		updateTooltip(item)
+		children: list[QWidget] = item.findChildren(QWidget)
 		for child in children:
-			child.setToolTip(self.getLayoutInfoAsToolTip(child))
+			updateTooltip(child)
 
 	@CrashReportWrapped
 	def redraw(self, cause: Optional[str] = None) -> None:
