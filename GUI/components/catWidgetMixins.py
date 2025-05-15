@@ -14,7 +14,7 @@ from PyQt5.QtGui import QBrush, QColor, QCursor, QFocusEvent, QFont, QFontMetric
 	QShortcutEvent, QStaticText, qGray, QIcon
 from PyQt5.QtWidgets import QApplication, QFrame, QLayout, QScrollBar, QShortcut, QSizePolicy, QWidget
 
-from ..utilities import connectSafe, disconnect, safeEmit
+from ..utilities import connectSafe, disconnect, safeEmit, connectUnsafe
 from ...utils import Decorator
 from ...utils.profiling import MethodCallCounter
 from ...utils.utils import CrashReportWrapped, runLaterSafe
@@ -338,12 +338,13 @@ def setQWidgetShortcutBase(item: QObject, shortcutParent: QWidget, shortcutConte
 	if currentShortcut is None:
 		currentShortcut = QShortcut(shortcutParent)
 
-		def itemDestroyed(x):
+		@CrashReportWrapped
+		def itemDestroyed(x) -> None:
 			currentShortcut.setEnabled(False)
 			currentShortcut.setParent(cast(QWidget, None))
 			currentShortcut.deleteLater()
 
-		connectSafe(item.destroyed, itemDestroyed)
+		connectUnsafe(item.destroyed, itemDestroyed)
 		setattr(item, '__currentShortcut', currentShortcut)
 	else:
 		disconnect(currentShortcut.activated)
@@ -352,14 +353,9 @@ def setQWidgetShortcutBase(item: QObject, shortcutParent: QWidget, shortcutConte
 	currentShortcut.setKey(key)
 	currentShortcut.setParent(shortcutParent)
 	currentShortcut.setContext(shortcutContext)
-	connectSafe(
-		currentShortcut.activated,
-		lambda: (onShortcut(currentShortcut, False) if not sip.isdeleted(item) else None)
-	)
-	connectSafe(
-		currentShortcut.activatedAmbiguously,
-		lambda: (onShortcut(currentShortcut, False) if not sip.isdeleted(item) else None)
-	)
+	wrappedOnShortcut = CrashReportWrapped(lambda: (onShortcut(currentShortcut, False) if not sip.isdeleted(item) else None))
+	connectUnsafe(currentShortcut.activated, wrappedOnShortcut)
+	connectUnsafe(currentShortcut.activatedAmbiguously, wrappedOnShortcut)
 	currentShortcut.setEnabled(True)
 
 
@@ -968,8 +964,6 @@ class CatFramedAbstractScrollAreaMixin(CatFramedAreaMixin):
 					p.drawImage(-tl, self._pixmap)
 			else:
 				self._paintBorder(widget, fillCenter=False, tl=-tl)
-
-
 
 
 def matchValue(c1: QColor, *, matchTo: QColor) -> QColor:

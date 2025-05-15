@@ -1892,6 +1892,7 @@ class CatProgressBar(QWidget, CatSizePolicyMixin, CatScalableWidgetMixin, CatSty
 	def value(self) -> int:
 		return self._value
 
+	@CrashReportWrapped
 	def setValue(self, value: int) -> None:
 		if self._value != value and value in range(self._minimum, self._maximum+1):
 			self._value = value
@@ -2520,11 +2521,11 @@ class DataBuilderTreeView(CatFocusableMixin, ShortcutMixin, CatFramedAbstractScr
 		self.setMinimumWidth(150)
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.setIndentation(self.indentation() * 2 // 3)
-		connectSafe(self.customContextMenuRequested, lambda pos, s=self: s.onContextMenu(pos))
-		QShortcut(QKeySequence.Copy,  self, lambda s=self: s.onCopy(), lambda: None, Qt.WidgetShortcut)
-		QShortcut(QKeySequence.Paste, self, lambda s=self: s.onPaste(), lambda: None, Qt.WidgetShortcut)
-		QShortcut(QKeySequence.Cut,   self, lambda s=self: s.onCut(), lambda: None, Qt.WidgetShortcut)
-		QShortcut(QKeySequence.Delete,   self, lambda s=self: s.onDelete(), lambda: None, Qt.WidgetShortcut)
+		connectSafe(self.customContextMenuRequested, self.onContextMenu)
+		QShortcut(QKeySequence.Copy, self, self.onCopy, lambda: None, Qt.WidgetShortcut)
+		QShortcut(QKeySequence.Paste, self, self.onPaste, lambda: None, Qt.WidgetShortcut)
+		QShortcut(QKeySequence.Cut, self, self.onCut, lambda: None, Qt.WidgetShortcut)
+		QShortcut(QKeySequence.Delete, self, self.onDelete, lambda: None, Qt.WidgetShortcut)
 		# QShortcut(Qt.Key_Return,      self, lambda s=self: s.onDoubleClick(self.currentIndex()), lambda: None, Qt.WidgetShortcut)
 		# QShortcut(Qt.Key_Enter,       self, lambda s=self: s.onDoubleClick(self.currentIndex()), lambda: None, Qt.WidgetShortcut)
 		self._pressedIndex: QModelIndex | None = None

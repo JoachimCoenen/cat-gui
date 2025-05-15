@@ -14,6 +14,8 @@ from types import TracebackType, FrameType
 from typing import Any, Callable, ContextManager, IO, Iterable, Iterator, TYPE_CHECKING, Type, overload, cast
 from warnings import warn
 
+from cat.utils.typing_ import BoundMethod
+
 try:
 	from PyQt5.QtCore import Qt, QTimer, pyqtBoundSignal
 	from PyQt5.QtWidgets import QApplication
@@ -153,12 +155,18 @@ if True:
 
 
 	@Decorator
-	def CrashReportWrapped(func=None, *, labelle=None):
+	def CrashReportWrapped(func=None):
+		"""
+		:param func: func must NOT be a BoundMethod.
+		"""
 		if func is None:
-			return lambda f: CrashReportWrapped(f, labelle=labelle)
+			return lambda f: CrashReportWrapped(f)
 
 		if isCrashReportWrapped(func):
 			return func  # no need to wrap twice
+
+		if isinstance(func, BoundMethod):
+			raise TypeError(f"cannot wrap a BoundMethod")
 
 		@wraps(func)
 		def call(*args, **kwargs):

@@ -10,7 +10,8 @@ from abc import abstractmethod
 from datetime import date
 from enum import Enum
 from types import EllipsisType
-from typing import Any, Callable, ClassVar, ContextManager, Generic, Iterable, Iterator, Literal, Optional, Protocol, Sequence, Type, TypeVar, Union, cast, overload
+from typing import Any, Callable, ClassVar, ContextManager, Generic, Iterable, Iterator, Literal, Optional, Protocol, \
+	Sequence, Type, TypeVar, Union, cast, overload, Concatenate
 
 from PyQt5 import QtCore, QtGui, QtWidgets, sip
 from PyQt5.QtCore import QItemSelectionModel, QMargins, QObject, Qt, pyqtBoundSignal, pyqtSignal, pyqtSlot
@@ -30,11 +31,13 @@ from .components.renderArea import CatPainter, RenderArea, Vector
 from .components.treeBuilders import DataTreeBuilderNode, DataHeaderBuilder
 from .enums import *
 from .framelessWindow.catFramelessWindowMixin import CatFramelessWindowMixin
-from .utilities import connectOnlyOnce, connectSafe
+from .utilities import connectOnlyOnce, connectSafe, connectUnsafe
 from ..Serializable.utils import get_args
 from ..utils import DeferredCallOnceMethod, Deprecated
 from ..utils.collections_ import AddToDictDecorator, Stack, getIfKeyIssubclass, getIfKeyIssubclassOrEqual
+from ..utils.collections_.weakUnhashableKeyDict import WeakUnhashableKeyDict
 from ..utils.profiling import ProfiledAction, TimedAction
+from ..utils.typing_ import BoundMethod
 from ..utils.utils import CrashReportWrapped
 
 if not hasattr(QtCore, 'Signal'):
@@ -530,20 +533,24 @@ class MenuControl(WithBlock):
 		return subMenu
 
 	def addAction(self, label: str, value: Callable[[], None], **kwargs):
-		def executeAction(checked):
+		action = self._addAction(label, kwargs)
+
+		@CrashReportWrapped
+		def executeAction(checked) -> None:
 			value()
 			self._gui.redrawGUI()
-		action = self._addAction(label, kwargs)
-		connectSafe(action.triggered, executeAction)
+		connectUnsafe(action.triggered, executeAction)
 
 	def addToggle(self, label: str, value: bool, setter: Callable[[bool], None], **kwargs):
-		def executeAction(checked):
-			setter(checked)
-			self._gui.redrawGUI()
 		kwargs.setdefault('checkable', True)
 		kwargs.setdefault('checked', value)
 		action = self._addAction(label, kwargs)
-		connectSafe(action.triggered, executeAction)
+
+		@CrashReportWrapped
+		def executeAction(checked) -> None:
+			setter(checked)
+			self._gui.redrawGUI()
+		connectUnsafe(action.triggered, executeAction)
 
 	def addItems(self, items: Iterable[MenuItemData]):
 		for item in items:
@@ -593,7 +600,7 @@ profiler = ProfiledAction('OnGUI', threshold_percent=1.0, colourNodesBySelftime=
 _redrawRecursionLvl: int = 0
 
 
-def _connectEventListener(item: QObject, propName: str, value: Any):
+def _connectEventListener(item: QObject, propName: str, slot: Callable):
 	eventName = propName[2].lower() + propName[3:]
 	event = getattr(item, eventName)
 	receivers = QtCore.QObject.receivers(item, event)
@@ -601,7 +608,11 @@ def _connectEventListener(item: QObject, propName: str, value: Any):
 		event.disconnect()
 	elif receivers > 1:
 		raise AttributeError('too many receivers connected to signal. only one (1) is allowed.')
-	connectSafe(event, value)
+
+	if not isinstance(slot, BoundMethod):  # todo documentation of additional parameter needed when not a bound method!
+		slot = BoundMethod(CrashReportWrapped(slot), item)
+
+	connectSafe(event, slot)
 
 
 _SHORTCUT_SETTERS: dict[str, Callable[[QObject, KeySequenceLike, dict[str, Any]], bool]] = {}
@@ -724,6 +735,8 @@ class PythonGUI(CatScalableWidgetMixin):
 	_isLastRedraw: bool
 	_name: str
 
+	_onInputModifiedSlots: WeakUnhashableKeyDict[QObject, Callable]
+
 	def __init__(self: _TS, host: QWidget, OnGUI: Callable[[_TS], None], *, seamless: bool = False, deferBorderFinalization: bool = False, suppressRedrawLogging: bool = False, style: Style = None):
 		super(PythonGUI, self).__init__()
 		self.customData = {}  # for the user of this PythonGUI instance to store custom data
@@ -761,6 +774,8 @@ class PythonGUI(CatScalableWidgetMixin):
 		self._isFirstRedraw = True
 		self._isLastRedraw = True
 		self._name = ''
+
+		self._onInputModifiedSlots = WeakUnhashableKeyDict()
 
 	@property
 	def name(self) -> str:
@@ -992,7 +1007,37 @@ class PythonGUI(CatScalableWidgetMixin):
 
 	redrawGUILater = Deprecated(redrawLater)
 
+	def _cleanup_onInputModifiedSlots(self) -> None:
+		toRemove = [widget for widget in self._onInputModifiedSlots.keys() if sip.isdeleted(widget)]
+		for widget in toRemove:
+			del self._onInputModifiedSlots[widget]
+		self._logNPrint(f"removed {len(toRemove)} onInputModifiedSlots from cache; {len(self._onInputModifiedSlots)} remaining.")
+
+	@overload
+	def getOnInputModified[TWidget: QObject, **Args](self, modifiedWidget: TWidget, func: None = None) -> Callable[..., None]: ...
+	@overload
+	def getOnInputModified[TWidget: QObject, **Args](self, modifiedWidget: TWidget, func: Callable[Concatenate[TWidget, Args], None]) -> Callable[Args, None]: ...
+
+	def getOnInputModified[TWidget: QWidget | QtWidgets.QLayout, **Args](self, modifiedWidget: TWidget, func: Callable[Concatenate[TWidget, Args], None] | None = None) -> Callable[Args, None]:
+		"""
+		:param modifiedWidget:
+		:param func: Must be a pure function that takes the `modifiedWidget` as its first argument.
+					The returned callable will be missing this first parameter. `func` cannot be changed for a given
+					widget once this method has been called.
+		"""
+		onInputModified = self._onInputModifiedSlots.get(modifiedWidget)
+		if onInputModified is None:
+			if func is None:
+				def func(*args, **kwargs) -> None:
+					self.OnInputModified(modifiedWidget, None)
+
+			onInputModified = BoundMethod(CrashReportWrapped(func), modifiedWidget)
+			self._onInputModifiedSlots[modifiedWidget] = onInputModified
+
+		return onInputModified
+
 	def OnInputModified(self, modifiedWidget: QWidget | QtWidgets.QLayout, data: Any = None):
+		assert data is None
 		self._forceSecondRedraw = True
 		try:
 			self._modifiedInputStack.push(self.modifiedInput)
@@ -1014,7 +1059,7 @@ class PythonGUI(CatScalableWidgetMixin):
 
 	def _connectOnInputModified(self, widget: QWidget | QtWidgets.QLayout, signal: pyqtBoundSignal | pyqtSignal):
 		# pyqtSignal is in the type signature, only to make pycharms typechecker happy.
-		connectOnlyOnce(widget, signal, lambda _=None: self.OnInputModified(widget), '_OnInputModified_')
+		connectOnlyOnce(widget, signal, self.getOnInputModified(widget), '_OnInputModified_')
 
 	def handleKWArgsCache(self, item, kwargs):
 		if not kwargs:
@@ -2638,8 +2683,8 @@ class PythonGUI(CatScalableWidgetMixin):
 			btnGrpLayout = layout._qLayout  # used later for identifying, whether btnGroup has been changed by user
 			buttonGroup = getattr(btnGrpLayout, '_buttonGroup', None)
 			if buttonGroup is None:
-				buttonGroup = QtWidgets.QButtonGroup(layout._qLayout)
-				setattr(layout._qLayout, '_buttonGroup', buttonGroup)
+				buttonGroup = QtWidgets.QButtonGroup(btnGrpLayout)
+				setattr(btnGrpLayout, '_buttonGroup', buttonGroup)
 
 			currentValue = buttonGroup.checkedId()
 			for i in range(0, len(radioButtons)):
@@ -2659,14 +2704,15 @@ class PythonGUI(CatScalableWidgetMixin):
 
 		# event gets fired twice (1x for button that turned on and 1x for button that turned off).
 		# make sure only one event triggers a redrawing:
-		connectOnlyOnce(buttonGroup, buttonGroup.buttonToggled[int, bool], lambda _, switchedOn: self.OnInputModified(btnGrpLayout, data=buttonGroup) if switchedOn else 0, '_OnInputModified_')
+		onInputModified = self.getOnInputModified(btnGrpLayout, lambda btnGrpLyt, _, switchedOn: self.OnInputModified(btnGrpLyt) if switchedOn else None)
+		connectOnlyOnce(buttonGroup, buttonGroup.buttonToggled[int, bool], onInputModified, '_OnInputModified_')
 		return buttonGroup.checkedId()
 
 	def listField(self, index: Optional[int], values: list[str], label: Optional[str] = None, valuesHaveChanged: bool = True, **kwargs):
 		listBox = self.addLabeledItem(QtWidgets.QListView,   label, **kwargs)
 		if listBox.model() is None:
 			listBox.setModel(QtCore.QStringListModel(listBox))
-			connectSafe(listBox.model().modelReset, lambda: self.OnInputModified(listBox.model()))
+			connectSafe(listBox.model().modelReset, self.getOnInputModified(listBox.model()))
 
 		selection = listBox.selectionModel()
 		if listBox != self.modifiedInput[0]:  # and listBox.currentIndex().row() != index:
@@ -2681,7 +2727,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		# connectOnlyOnce does not work here, because sometimes the __dict__ attribute doesn't get persisted properly:
 		if QtCore.QObject.receivers(selection, selection.selectionChanged) == 1:  # '1' required here, because the QListView also connects to that signal
 			# connectOnlyOnce does not work here, because sometimes the __dict__ attribute doesn't get persisted properly
-			connectSafe(selection.selectionChanged, lambda x, y: self.OnInputModified(listBox))
+			connectSafe(selection.selectionChanged, self.getOnInputModified(listBox))
 
 		return listBox.currentIndex().row()
 
@@ -2692,7 +2738,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		table = self.addLabeledItem(DataTableView, label, fullSize=fullSize, **kwargs)
 		if table.model() is None:
 			table.setModel(DataTableModel(table, headers))
-			connectSafe(table.model().modelReset, lambda: self.OnInputModified(table.model()))
+			connectSafe(table.model().modelReset, self.getOnInputModified(table.model()))
 
 		table.verticalHeader().setVisible(False)
 		table.horizontalHeader().setStretchLastSection(True)
@@ -2757,7 +2803,7 @@ class PythonGUI(CatScalableWidgetMixin):
 		# connectOnlyOnce does not work here, because sometimes the __dict__ attribute doesn't get persisted properly:
 		if QtCore.QObject.receivers(selectionModel, selectionModel.selectionChanged) == 2:
 			# connectOnlyOnce does not work here, because sometimes the __dict__ attribute doesn't get persisted properly
-			connectSafe(selectionModel.selectionChanged, lambda new, old: self.OnInputModified(selectionModel))
+			connectSafe(selectionModel.selectionChanged, self.getOnInputModified(selectionModel))
 
 		self._connectOnInputModified(treeWidget, treeWidget.dataChanged)
 

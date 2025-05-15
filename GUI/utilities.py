@@ -5,21 +5,29 @@ from PyQt5 import sip
 from PyQt5.QtCore import QObject, pyqtBoundSignal, pyqtSignal, pyqtSlot
 
 from ..utils.logging_ import logDebug, logError
+from ..utils.typing_ import BoundMethod
 from ..utils.utils import CrashReportWrapped, isCrashReportWrapped, runLaterSafe
 
 
-QTSlot = Callable
+QTSlot = BoundMethod
 QTSlotID = str
 
 
 def connectUnsafe(signal, slot: QTSlot):
-	if isCrashReportWrapped(slot):
+	if not isCrashReportWrapped(slot):
 		raise TypeError(f"expected a CrashReportWrapped callable, but got {slot}")
+	
 	return signal.connect(slot)
 
 
 def connectSafe(signal: pyqtBoundSignal | pyqtSignal, slot: QTSlot):
-	return signal.connect(CrashReportWrapped(slot))
+	if not isinstance(slot, BoundMethod):
+		raise TypeError(f"can only connect to a BoundMethod, but got {slot}")
+
+	if not isCrashReportWrapped(slot):
+		raise TypeError(f"expected a CrashReportWrapped callable, but got {slot}")
+
+	return signal.connect(slot)
 
 
 def disconnect(obj: QObject | pyqtSignal):
@@ -70,8 +78,8 @@ def connectOnlyOnce(obj: QObject, signal: pyqtBoundSignal | pyqtSignal, slot: QT
 
 	slotsForSignal = connectedSlots[signal.signal]
 	if slotID not in slotsForSignal:
-		slotsForSignal[slotID] = slot
 		connectSafe(signal, slot)
+		slotsForSignal[slotID] = slot
 
 
 def saveDisconnect(obj: QObject, signal: pyqtBoundSignal, slotID: QTSlotID):

@@ -568,7 +568,7 @@ class CodeEditor(
 		self.setCaretLineBackgroundColor(QColor(brightness, brightness, brightness))
 
 		self.setMarginLineNumbers(1, True)
-		connectSafe(self.linesChanged, lambda: self._onLinesChanged())
+		connectSafe(self.linesChanged, self._onLinesChanged)
 		self.setFolding(QsciScintilla.PlainFoldStyle)
 
 		connectSafe(self.cursorPositionChanged, self._onCursorPositionChanged)
@@ -1049,7 +1049,7 @@ def _innerAdvancedCodeField(
 	if prev:
 		codeField.prevSearchResult()
 
-	connectOnlyOnce(codeField, codeField.textChanged, lambda: gui.OnInputModified(codeField), '_OnInputModified_')
+	gui._connectOnInputModified(codeField, codeField.textChanged)
 	return codeField
 
 

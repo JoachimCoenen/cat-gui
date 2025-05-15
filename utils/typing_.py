@@ -10,6 +10,20 @@ NoneType = types.NoneType
 type ClassInfo[T] = typing.Type[T] | types.UnionType | tuple[ClassInfo[T], ...]
 
 
+class Dummy:
+	def dummy(self) -> None:
+		pass
+
+
+BoundMethod = type(Dummy().dummy)
+del Dummy
+
+def isUnboundMethod[**Args](method: typing.Callable[[Args], Any]) -> bool:
+	if not callable(method):
+		return False
+	# todo
+
+
 def is_namedtuple(x) -> bool:
 	t = x if isinstance(x, type) else type(x)
 	b = t.__bases__
@@ -64,6 +78,7 @@ SupportsRichComparison: TypeAlias = SupportsDunderLT[Any] | SupportsDunderGT[Any
 __all__ = [
 	'typeRepr',
 	'NoneType',
+	'BoundMethod',
 	'ClassInfo',
 	'is_namedtuple',
 	'replace_tuple',
