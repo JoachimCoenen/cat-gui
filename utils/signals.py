@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Type, Union, overload
+from typing import Any, Callable, overload
 
 from .collections_.weakUnhashableKeyDict import WeakUnhashableKeyDict
 from ..utils.profiling import logDebug, logWarning
@@ -8,21 +8,21 @@ from ..utils.profiling import logDebug, logWarning
 VERBOSE_LOGGING = False
 
 
-class CatSignal[*_DArgs]:
+class CatSignal[*Args]:
 
 	def __init__(self, name: str):
 		self._name: str = name
-		self._connectedSlots: WeakUnhashableKeyDict[Any, dict[Any, Callable[[*_DArgs], Any]]] = WeakUnhashableKeyDict()
+		self._connectedSlots: WeakUnhashableKeyDict[Any, dict[Any, Callable[[*Args], Any]]] = WeakUnhashableKeyDict()
 
 	@property
 	def name(self) -> str:
 		return self._name
 
 	@property
-	def connectedSlots(self) -> WeakUnhashableKeyDict[Any, dict[Any, Callable[[*_DArgs], Any]]]:
+	def connectedSlots(self) -> WeakUnhashableKeyDict[Any, dict[Any, Callable[[*Args], Any]]]:
 		return self._connectedSlots
 
-	def connect[_TInstance](self, instance: _TInstance, key: Any, slot: Callable[[*_DArgs], Any], *, warnIfAlreadyConnected: bool = True) -> None:
+	def connect[_TInstance](self, instance: _TInstance, key: Any, slot: Callable[[*Args], Any], *, warnIfAlreadyConnected: bool = True) -> None:
 		slotsForInstance = self._connectedSlots.setdefault(instance, {})
 		if key in slotsForInstance:
 			if warnIfAlreadyConnected:
@@ -42,7 +42,7 @@ class CatSignal[*_DArgs]:
 				logDebug(f"Disconnecting slot '{key}' from signal {self.name} for instance '{instance}'.")
 			del slotsForInstance[key]
 
-	def reconnect[_TInstance](self, instance: _TInstance, key: Any, slot: Callable[[*_DArgs], Any]) -> None:
+	def reconnect[_TInstance](self, instance: _TInstance, key: Any, slot: Callable[[*Args], Any]) -> None:
 		self.disconnect(instance, key, warnIfNotConnected=False)
 		self.connect(instance, key, slot)
 
@@ -62,7 +62,7 @@ class CatSignal[*_DArgs]:
 				logDebug(f"Disconnecting all slots from signal {self.name} for instance '{instance}'.")
 			del self._connectedSlots[instance]
 
-	def emit[_TInstance](self, instance: _TInstance, args: tuple[*_DArgs]) -> None:
+	def emit[_TInstance](self, instance: _TInstance, args: tuple[*Args]) -> None:
 		slotsForInstance = self._connectedSlots.get(instance, None)
 		if not slotsForInstance:
 			if VERBOSE_LOGGING:
@@ -74,41 +74,34 @@ class CatSignal[*_DArgs]:
 				slot(*args)
 
 	@overload
-	def __get__[_TInstance](self, instance, owner: Type[_TInstance]) -> CatBoundSignal[*_DArgs]:
-		...
-
+	def __get__(self, instance: None, owner: type) -> CatSignal[*Args]: ...
 	@overload
-	def __get__(self, instance: Literal[None], owner: type) -> CatSignal[*_DArgs]:
-		...
+	def __get__(self, instance: Any, owner: type | None = None) -> CatBoundSignal[*Args]: ...
 
-	def __get__[_TInstance](self, instance, owner: Type[_TInstance]) -> Union[CatBoundSignal[*_DArgs], CatSignal[*_DArgs]]:
+	def __get__(self, instance: Any | None, owner: type | None = None) -> CatBoundSignal[*Args] | CatSignal[*Args]:
 		if instance is None:
 			return self
 
 		return CatBoundSignal(instance, self)
 
 
-class CatBoundSignal[*_DArgs]:
+class CatBoundSignal[*Args]:
 
-	def __init__(self, instance, unboundSignal: CatSignal[*_DArgs]):
-		self._instance = instance
-		self.__unboundSignal: tuple[CatSignal[*_DArgs]] = (unboundSignal,)
+	def __init__(self, instance: Any, unboundSignal: CatSignal[*Args]):
+		self._instance: Any = instance
+		self.__unboundSignal: CatSignal[*Args] = unboundSignal
 
-	@property
-	def _unboundSignal(self) -> CatSignal[*_DArgs]:
-		return self.__unboundSignal[0]
-
-	def connect(self, key: Any, slot: Callable[[*_DArgs], Any], *, warnIfAlreadyConnected: bool = True):
-		self._unboundSignal.connect(self._instance, key, slot, warnIfAlreadyConnected=warnIfAlreadyConnected)
+	def connect(self, key: Any, slot: Callable[[*Args], Any], *, warnIfAlreadyConnected: bool = True):
+		self.__unboundSignal.connect(self._instance, key, slot, warnIfAlreadyConnected=warnIfAlreadyConnected)
 
 	def disconnect(self, key: Any, *, warnIfNotConnected: bool = True):
-		self._unboundSignal.disconnect(self._instance, key, warnIfNotConnected=warnIfNotConnected)
+		self.__unboundSignal.disconnect(self._instance, key, warnIfNotConnected=warnIfNotConnected)
 
-	def reconnect(self, key: Any, slot: Callable[[*_DArgs], Any]):
-		self._unboundSignal.reconnect(self._instance, key, slot)
+	def reconnect(self, key: Any, slot: Callable[[*Args], Any]):
+		self.__unboundSignal.reconnect(self._instance, key, slot)
 
 	def disconnectAll(self) -> None:
-		self._unboundSignal.disconnectAll(self._instance)
+		self.__unboundSignal.disconnectAll(self._instance)
 
-	def emit(self, *args: *_DArgs) -> None:
-		self._unboundSignal.emit(self._instance, args)
+	def emit(self, *args: *Args) -> None:
+		self.__unboundSignal.emit(self._instance, args)
