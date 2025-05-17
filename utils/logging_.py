@@ -2,13 +2,13 @@ import enum
 from contextlib import contextmanager
 from datetime import datetime
 from functools import wraps
-from typing import Any, ContextManager, Callable, Protocol
+from typing import Any, ContextManager, Protocol, Iterator, Callable
 
 from ..utils import format_full_exc, format_exc_no_traceback, formatters
 from ..utils.formatters import formatFuncCall, formatVal, indentMultilineStr, PW, WriterObjectABC
 
 
-def printIndented(val, *, prefix: str = '', indentLvl: int = 0, enabled: bool = True, stream: WriterObjectABC = None):
+def printIndented(val, *, prefix: str = '', indentLvl: int = 0, enabled: bool = True, stream: WriterObjectABC | None = None):
 	additionalIndentLvl = 1 + indentLvl
 	if not enabled:
 		return
@@ -26,16 +26,16 @@ def printIndented(val, *, prefix: str = '', indentLvl: int = 0, enabled: bool = 
 
 _isEnabledGlobal = True
 _m_indent_lvl = -1
-__callingDict = list()  # used to detect infinite Recursion cause by the IndentLeveledBare function.
+__callingDict: list[tuple[Any, Callable]] = list()  # used to detect infinite Recursion cause by the IndentLeveledBare function.
 
 
-def _indentLeveledRecursionSafe(isMemberFunc: bool = False, enabled: bool = True, maxDepth: int = 1, printArgs: bool = True):
-	def transformer(func):
+def _indentLeveledRecursionSafe[**Args, R](isMemberFunc: bool = False, enabled: bool = True, maxDepth: int = 1, printArgs: bool = True) -> Callable[[Callable[Args, R]], Callable[Args, R]]:
+	def transformer(func: Callable[Args, R]) -> Callable[Args, R]:
 		if not enabled:
 			return func
 
 		@wraps(func)
-		def wrapped(*args, **kwargs):
+		def wrapped(*args: Args.args, **kwargs: Args.kwargs) -> R:
 			global _isEnabledGlobal
 			global _m_indent_lvl
 
@@ -44,30 +44,26 @@ def _indentLeveledRecursionSafe(isMemberFunc: bool = False, enabled: bool = True
 
 			# indentation:
 			lastMAX_INDENTS = formatters.MAX_INDENTS
-			newMAX_INDENTS = _m_indent_lvl + 0 + maxDepth
+			newMAX_INDENTS = _m_indent_lvl + maxDepth
 			try:
 				formatters.MAX_INDENTS = newMAX_INDENTS
-				indentStr = formatters.INDENT *_m_indent_lvl
 
 				# recursion:
 				funcId = (args[0], func) if isMemberFunc else (None, func)
 
-				if any( (funcId[0] is f[0]) and (funcId[1] is f[1]) for f in __callingDict):
-					printIndented(f"Infinite recursion prevented in `_indentLeveledRecursionSafe()` (`@LoggedIndentedMethod()` and `@LoggedIndentedFunction`).")
+				if any((funcId[0] is f[0]) and (funcId[1] is f[1]) for f in __callingDict):
+					printIndented("Infinite recursion prevented in `_indentLeveledRecursionSafe()` (`@LoggedIndentedMethod()` and `@LoggedIndentedFunction`).")
 					formatters.MAX_INDENTS = lastMAX_INDENTS
 					result = func(*args, **kwargs)
 					return result
 
 				__callingDict.append(funcId)
 
-				# nameing:
+				# naming:
 				valueName = ''
 				typeName = ''
 				if isMemberFunc:
 					self = args[0]
-					# if not valueName and hasattr(self, 'fullName'):
-					#	valueName = self.fullName
-					#	valueName = valueName if isinstance(valueName, str) else ''
 
 					if not valueName and hasattr(self, 'name'):
 						valueName = self.name
@@ -96,12 +92,12 @@ def _indentLeveledRecursionSafe(isMemberFunc: bool = False, enabled: bool = True
 						printIndented(f"{formatFuncCall(func, isMemberFunc=False, tab=_m_indent_lvl, newLine='', singleIndent='')}      {valueName} ({typeName} in {moduleName})")
 				try:
 					formatters.MAX_INDENTS = lastMAX_INDENTS
-					_m_indent_lvl +=1
+					_m_indent_lvl += 1
 					result = func(*args, **kwargs)
 					formatters.MAX_INDENTS = newMAX_INDENTS
 				except Exception as e:
 					formatters.MAX_INDENTS -= 1
-					_m_indent_lvl -=1
+					_m_indent_lvl -= 1
 					printIndented(f"!{func.__name__} throws: {e}")
 					if func.__name__ == "tryGetValue":
 						import traceback
@@ -109,10 +105,10 @@ def _indentLeveledRecursionSafe(isMemberFunc: bool = False, enabled: bool = True
 					raise e
 				else:
 					formatters.MAX_INDENTS -= 1
-					_m_indent_lvl -=1
-					if isinstance(result, (bool, int, float, str )) \
-							or isinstance(result, str) and len(result) < 128-2 \
-							or isinstance(result, (list, tuple)) and len(result) < 4:
+					_m_indent_lvl -= 1
+					if (isinstance(result, (bool, int, float, str))
+								or isinstance(result, str) and len(result) < 128-2
+								or isinstance(result, (list, tuple)) and len(result) < 4):
 						printIndented(f"{func.__name__} returns: {result}")
 					else:
 						printIndented(f"{func.__name__} returns: {formatVal(type(result), tab=_m_indent_lvl)}")
@@ -159,27 +155,28 @@ def isEnabledFor(level: LogLevel):
 	"""
 	return _loggingEnabled and level >= _currentLogELevel
 
-def logDebug(e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC = None, includeTraceback: bool = True):
+
+def logDebug(e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC | None = None, includeTraceback: bool = True):
 	_log(e, args, LogLevel.DEBUG, indentLvl, stream, includeTraceback)
 
 
-def logInfo(e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC = None, includeTraceback: bool = True):
+def logInfo(e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC | None = None, includeTraceback: bool = True):
 	_log(e, args, LogLevel.INFO, indentLvl, stream, includeTraceback)
 
 
-def logWarning(e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC = None, includeTraceback: bool = True):
+def logWarning(e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC | None = None, includeTraceback: bool = True):
 	_log(e, args, LogLevel.WARN, indentLvl, stream, includeTraceback)
 
 
-def logError(e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC = None, includeTraceback: bool = True):
+def logError(e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC | None = None, includeTraceback: bool = True):
 	_log(e, args, LogLevel.ERROR, indentLvl, stream, includeTraceback)
 
 
-def logFatal(e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC = None, includeTraceback: bool = True):
+def logFatal(e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC | None = None, includeTraceback: bool = True):
 	_log(e, args, LogLevel.FATAL, indentLvl, stream, includeTraceback)
 
 
-def _log(e: Exception | str, args: tuple[Any, ...], level: LogLevel, indentLvl: int = 0, stream: WriterObjectABC = None, includeTraceback: bool = True):
+def _log(e: Exception | str, args: tuple[Any, ...], level: LogLevel, indentLvl: int = 0, stream: WriterObjectABC | None = None, includeTraceback: bool = True):
 	if isEnabledFor(level):
 		msg = formatLogMessage(e, args, includeTraceback=includeTraceback)
 		printIndented(msg, prefix=getLogPrefix(level), indentLvl=indentLvl + _currentBaseIndentLevel, stream=stream)
@@ -204,22 +201,22 @@ def formatException(e: Exception, *, includeTraceback: bool) -> str:
 
 
 class LoggingFunction(Protocol):
-	def __call__(self, e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC = None, includeTraceback: bool = True) -> None:
+	def __call__(self, e: Exception | str, *args: Any, indentLvl: int = 0, stream: WriterObjectABC | None = None, includeTraceback: bool = True) -> None:
 		...
 
 
-class _LoggingIndentFunction(Protocol):
-	def __call__(self, e: Exception | str = None, *args: Any, stream: WriterObjectABC = None, includeTraceback: bool = True) -> ContextManager:
+class LoggingIndentFunction(Protocol):
+	def __call__(self, e: Exception | str | None = None, *args: Any, stream: WriterObjectABC | None = None, includeTraceback: bool = True) -> ContextManager:
 		...
 
 
-def _loggingIndent(name: str, level: LogLevel) -> Callable[[], ContextManager]:
+def _loggingIndent(name: str, level: LogLevel) -> LoggingIndentFunction:
 	"""
 	contextmanager that increases th indentation for all contained logging operations.
 	:return:
 	"""
-	@contextmanager
-	def loggingIndent(e: Exception | str = None, *args: Any, stream: WriterObjectABC = None, includeTraceback: bool = True):
+
+	def loggingIndent(e: Exception | str | None = None, *args: Any, stream: WriterObjectABC | None = None, includeTraceback: bool = True) -> Iterator[None]:
 		"""
 		contextmanager that increases th indentation for all contained logging operations.
 		:return:
@@ -235,21 +232,23 @@ def _loggingIndent(name: str, level: LogLevel) -> Callable[[], ContextManager]:
 		finally:
 			if isEnabled:
 				_currentBaseIndentLevel = max(0, _currentBaseIndentLevel - 1)
-	loggingIndent.__name__ = name
-	return loggingIndent
+
+	loggingIndentCtxMgr = contextmanager(loggingIndent)
+	loggingIndentCtxMgr.__name__ = name
+	return loggingIndentCtxMgr
 
 
-loggingIndentDebug: _LoggingIndentFunction = _loggingIndent('loggingIndentDebug', LogLevel.DEBUG)
+loggingIndentDebug: LoggingIndentFunction = _loggingIndent('loggingIndentDebug', LogLevel.DEBUG)
 """contextmanager that increases th indentation for all contained logging operations if the log level is greater or equal to LogLevel.DEBUG."""
-loggingIndentInfo: _LoggingIndentFunction = _loggingIndent('loggingIndentInfo', LogLevel.INFO)
+loggingIndentInfo: LoggingIndentFunction = _loggingIndent('loggingIndentInfo', LogLevel.INFO)
 """contextmanager that increases th indentation for all contained logging operations if the log level is greater or equal to LogLevel.INFO."""
-loggingIndentWarning: _LoggingIndentFunction = _loggingIndent('loggingIndentWarning', LogLevel.WARN)
+loggingIndentWarning: LoggingIndentFunction = _loggingIndent('loggingIndentWarning', LogLevel.WARN)
 """contextmanager that increases th indentation for all contained logging operations if the log level is greater or equal to LogLevel.WARN."""
-loggingIndentError: _LoggingIndentFunction = _loggingIndent('loggingIndent', LogLevel.ERROR)
+loggingIndentError: LoggingIndentFunction = _loggingIndent('loggingIndent', LogLevel.ERROR)
 """contextmanager that increases th indentation for all contained logging operations if the log level is greater or equal to LogLevel.ERROR."""
-loggingIndentFatal: _LoggingIndentFunction = _loggingIndent('loggingIndent', LogLevel.FATAL)
+loggingIndentFatal: LoggingIndentFunction = _loggingIndent('loggingIndent', LogLevel.FATAL)
 """contextmanager that increases th indentation for all contained logging operations if the log level is greater or equal to LogLevel.FATAL."""
-loggingIndent: _LoggingIndentFunction = _loggingIndent('loggingIndent', LogLevel.ALWAYS)
+loggingIndent: LoggingIndentFunction = _loggingIndent('loggingIndent', LogLevel.ALWAYS)
 """contextmanager that increases th indentation for all contained logging operations independent of the log level."""
 
 
@@ -267,7 +266,7 @@ loggingIndent: _LoggingIndentFunction = _loggingIndent('loggingIndent', LogLevel
 # 		_currentBaseIndentLevel = max(0, _currentBaseIndentLevel - 1)
 
 
-_currentOutStream = PW()
+_currentOutStream: WriterObjectABC = PW()
 
 
 def setLoggingStream(newStream: WriterObjectABC) -> None:
@@ -279,6 +278,9 @@ __all__ = [
 	"LoggedIndentedMethod",
 	"LoggedIndentedFunction",
 	"printIndented",
+
+	"LoggingFunction",
+	"LoggingIndentFunction",
 
 	"logDebug",
 	"logInfo",
