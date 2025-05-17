@@ -11,7 +11,7 @@ from collections import defaultdict
 from enum import Enum
 from functools import wraps
 from types import TracebackType, FrameType
-from typing import Any, Callable, ContextManager, IO, Iterable, Iterator, TYPE_CHECKING, Type, overload, cast
+from typing import Any, Callable, ContextManager, IO, Iterable, Iterator, Type, overload, cast, Self, AnyStr
 from warnings import warn
 
 from cat.utils.typing_ import BoundMethod
@@ -21,13 +21,14 @@ try:
 	from PyQt5.QtWidgets import QApplication
 except ImportError:
 	HAS_QT = False
-	Qt = QTimer = QApplication = pyqtBoundSignal = None
+	Qt = QTimer = QApplication = pyqtBoundSignal = None  # type: ignore 
 else:
 	HAS_QT = True
 
 
-def __onCrash__(exception):
+def __onCrash__(exception: Exception) -> None:
 	pass
+
 
 onCrash = __onCrash__
 
@@ -71,7 +72,7 @@ class Singleton:
 		instance.init(*args, **kwds)
 		return instance
 
-	def init(self, *args, **kwds):
+	def init(self, *args, **kwds) -> None:
 		pass
 
 
@@ -146,7 +147,12 @@ if True:
 		def __init__(self, func: Callable[[Any], TT]):
 			self._func: Callable[[Any], TT] = func
 
-		def __get__(self, instance, owner) -> TT:
+		@overload
+		def __get__(self, instance: None, owner: type | None = None) -> Self: ...
+		@overload
+		def __get__(self, instance: Any, owner: type | None = None) -> TT:  ...
+
+		def __get__(self, instance: Any | None, owner: type | None = None) -> TT | Self:
 			if instance is None:
 				return self
 			value = self._func(instance)
@@ -154,8 +160,13 @@ if True:
 			return value
 
 
+	@overload
+	def CrashReportWrapped[**Args, R](func: None = None) -> Callable[[Callable[Args, R]], Callable[Args, R]]: ...
+	@overload
+	def CrashReportWrapped[**Args, R](func: Callable[Args, R]) -> Callable[Args, R]:  ...
+
 	@Decorator
-	def CrashReportWrapped(func=None):
+	def CrashReportWrapped[**Args, R](func: Callable[Args, R] | None = None):
 		"""
 		:param func: func must NOT be a BoundMethod.
 		"""
@@ -166,7 +177,7 @@ if True:
 			return func  # no need to wrap twice
 
 		if isinstance(func, BoundMethod):
-			raise TypeError(f"cannot wrap a BoundMethod")
+			raise TypeError("cannot wrap a BoundMethod")
 
 		@wraps(func)
 		def call(*args, **kwargs):
@@ -178,7 +189,7 @@ if True:
 				logError(format_full_exc())
 				onCrash(e)
 				raise
-		call.__CrashReportWrapped__ = True
+		call.__CrashReportWrapped__ = True  # type: ignore 
 		return call
 
 
@@ -187,6 +198,8 @@ if True:
 
 
 if QTimer is not None and Qt is not None:
+
+	__sentinel = object()
 
 	@overload
 	def runLaterSafe(msec: int, func: Callable[[], None] | pyqtBoundSignal, /) -> None:
@@ -202,8 +215,6 @@ if QTimer is not None and Qt is not None:
 	def runLaterSafe(msec: int, timerType: Qt.TimerType, func: Callable[[], None] | pyqtBoundSignal, /) -> None:
 		...
 
-	__sentinel = object()
-
 	def runLaterSafe(arg1, arg2, arg3=__sentinel) -> None:
 		"""
 		:param arg1: `msec: int` milliseconds.
@@ -218,20 +229,9 @@ if QTimer is not None and Qt is not None:
 
 
 	class _DeferredCall:
-		def __init__(self, decorator: DeferredCallOnceMethod, instance):
-			self._decorator: DeferredCallOnceMethod = decorator
+		def __init__(self, decorator: _DeferredCallOnceMethod, instance):
+			self._decorator: _DeferredCallOnceMethod = decorator
 			self._instance = instance
-
-		if TYPE_CHECKING:
-			# make PyCharms inspections happy:
-			@property
-			def _decorator(self) -> DeferredCallOnceMethod:
-				return DeferredCallOnceMethod(lambda: None)
-
-			# make PyCharms inspections happy:
-			@_decorator.setter
-			def _decorator(self, d: DeferredCallOnceMethod):
-				pass
 
 		def __call__(self, *args, **kwargs) -> None:
 			self._decorator.call(self._instance, args, kwargs)
@@ -247,24 +247,24 @@ if QTimer is not None and Qt is not None:
 			return self._decorator.isPending(self._instance)
 
 
-	@Decorator
-	class DeferredCallOnceMethod:
-		def __init__(self, *, delay: int = 333):
+	class _DeferredCallOnceMethod:
+		def __init__(self, delay: int, method: Callable):
 			self._delay: int = delay
 			self._versionCounters: dict[int, int] = defaultdict(int)
 			self._pending: set[int] = set()
-			self._method: Callable | None = None
+			self._method: Callable = method
 
-		def __get__(self, instance, owner):  # -> _DeferredCall:
+		@overload
+		def __get__(self, instance: None, owner: type | None = None) -> Self: ...
+		@overload
+		def __get__(self, instance: Any, owner: type | None = None) -> _DeferredCall:  ...
+
+		def __get__(self, instance, owner=None):  # -> _DeferredCall:
 			if instance is None:
 				return self
 
 			deferredCall = _DeferredCall(self, instance)
 			return wraps(self._method)(deferredCall)
-
-		def __call__(self, func: Callable) -> DeferredCallOnceMethod:
-			self._method: Callable = func
-			return self
 
 		def _asyncCall(self, forVersion: int, forInstance: weakref.ReferenceType, args: tuple[Any, ...], kwargs: dict[str, Any]) -> None:
 			instance = forInstance()
@@ -302,9 +302,17 @@ if QTimer is not None and Qt is not None:
 			return id(instance) in self._pending
 
 
+	@Decorator
+	def DeferredCallOnceMethod(*, delay: int = 333) -> Callable[[Callable], _DeferredCallOnceMethod]:
+		def decorator(method: Callable) -> _DeferredCallOnceMethod:
+			return _DeferredCallOnceMethod(delay, method)
+
+		return decorator
+
+
 if QApplication is not None:
 	@Decorator
-	def BusyIndicator[TCallable](func: TCallable) -> TCallable:
+	def BusyIndicator[**Args, R](func: Callable[Args, R]) -> Callable[Args, R]:
 		@wraps(func)
 		def wrappedFunc(*args, **kwargs):
 			QApplication.setOverrideCursor(Qt.WaitCursor)
@@ -363,7 +371,7 @@ if True:
 
 	@Decorator
 	@overload
-	def Deprecated[TCallable](funcMethodOrClass: TCallable, doc: str | None = None, *, msg: str | None = None) -> TCallable:
+	def Deprecated[TCallable](funcMethodOrClass: TCallable, doc: str | None = None, /, *, msg: str | None = None) -> TCallable:
 		# just an overload
 		pass
 
@@ -390,10 +398,10 @@ if True:
 
 # Files and Directories, os specific, ...:
 if True:
-	PLATFORM_IS_WINDOWS = platform.system() == 'Windows'
-	PLATFORM_IS_DARWIN = platform.system() == 'Darwin'
-	PLATFORM_IS_MAC_OS = PLATFORM_IS_DARWIN
-	PLATFORM_IS_LINUX = platform.system() == 'Linux'
+	PLATFORM_IS_WINDOWS: bool = platform.system() == 'Windows'
+	PLATFORM_IS_DARWIN: bool = platform.system() == 'Darwin'
+	PLATFORM_IS_MAC_OS: bool = PLATFORM_IS_DARWIN
+	PLATFORM_IS_LINUX: bool = platform.system() == 'Linux'
 	if not any((PLATFORM_IS_WINDOWS, PLATFORM_IS_DARWIN, PLATFORM_IS_MAC_OS, PLATFORM_IS_LINUX)):
 		raise RuntimeError(f"invalid platform: {platform.system()}!")
 
@@ -410,20 +418,9 @@ if True:
 		FILE_BROWSER_COMMAND: str = ''
 		FILE_BROWSER_DISPLAY_NAME: str = 'NO FILE BROWSER FOUND'
 
-	class _ENCODINGS:
-		@property
-		def UTF_8(self) -> str:
-			return 'utf-8'
-
-		@property
-		def LATIN_1(self) -> str:
-			return 'latin_1'
-
-
-	ENCODINGS = _ENCODINGS()
 
 	def openOrCreate(
-			file: str | bytes | int | os.PathLike,
+			file: str | bytes | os.PathLike,
 			mode: str = 'r',
 			buffering: int = -1,
 			encoding: str | None = None,
@@ -492,101 +489,31 @@ if True:
 		return INVALID_PATH_CHARS_PATTERN.sub(sub, name)
 
 
-# Maybe, selectNotNone(...), ...:
-if True:
-	@overload
-	def _selectNotX[T, X](arg: T | X, arg2: T | X, *, x: X) -> T | X: ...
-	@overload
-	def _selectNotX[T, X](arg: T | X, arg2: T, *, x: X) -> T: ...
-
-	def _selectNotX[T, X](arg: T | X, arg2: T | X, *, x: X) -> T | X:
-		return arg if arg is not x else arg2
-
-
-	@overload
-	def selectNotNothing[T](arg: T | Nothing, arg2: T | Nothing) -> T | Nothing: ...
-	@overload
-	def selectNotNothing[T](arg: T | Nothing, arg2: T) -> T: ...
-
-	def selectNotNothing[T](arg: T | Nothing, arg2: T | Nothing) -> T | Nothing:
-		return _selectNotX(arg, arg2, x=Nothing)
-
-
-	@overload
-	def selectNotNone[T](arg: T | None, arg2: T | None) -> T | None: ...
-	@overload
-	def selectNotNone[T](arg: T | None, arg2: T) -> T: ...
-
-	def selectNotNone[T](arg: T | None, arg2: T | None) -> T | None:
-		return _selectNotX(arg, arg2, x=None)
-
-
-	def selectNotNones[T](arg: T | None, *args: T | None) -> T | None:
-		if arg is not None:
-			return arg
-		return next(iter(filter(None, args)), None)
-
-# findall(...), flatmap(...), outerZip(...), mix(...), ...:
+# findall(...), flatmap(...), mix(...), ...:
 if True:
 
-	def findall(p: str, s: str):
-		'''Yields all the positions of the pattern p in the string s.'''
+	def findall(p: AnyStr, s: AnyStr) -> Iterator[int]:
+		"""Yields all the positions of the pattern p in the string s."""
 		i = s.find(p)
 		while i != -1:
 			yield i
 			i = s.find(p, i+1)
 
-
-	def flatmap(func, *iterable):
+	@overload
+	def flatmap[T1, R](self, func: Callable[[T1], Iterable[R]], iter1: Iterable[T1], /) -> Iterable[R]: ...
+	@overload
+	def flatmap[T1, T2, R](self, func: Callable[[T1, T2], Iterable[R]], iter1: Iterable[T1], iter2: Iterable[T2], /) -> Iterable[R]: ...
+	@overload
+	def flatmap[T1, T2, T3, R](self, func: Callable[[T1, T2, T3], Iterable[R]], iter1: Iterable[T1], iter2: Iterable[T2], iter3: Iterable[T3], /) -> Iterable[R]: ...
+	@overload
+	def flatmap[T1, T2, T3, T4, R](self, func: Callable[[T1, T2, T3, T4], Iterable[R]], iter1: Iterable[T1], iter2: Iterable[T2], iter3: Iterable[T3], iter4: Iterable[T4], /) -> Iterable[R]: ...
+	@overload
+	def flatmap[T1, T2, T3, T4, T5, R](self, func: Callable[[T1, T2, T3, T4, T5], Iterable[R]], iter1: Iterable[T1], iter2: Iterable[T2], iter3: Iterable[T3], iter4: Iterable[T4], iter5: Iterable[T5], /) -> Iterable[R]: ...
+	@overload
+	def flatmap[R](self, func: Callable[..., Iterable[R]], iter1: Iterable[Any], iter2: Iterable[Any], iter3: Iterable[Any], iter4: Iterable[Any], iter5: Iterable[Any], iter6: Iterable[Any], /, *iterables: Iterable[Any]) -> Iterable[R]: ...
+	
+	def flatmap[R](func: Callable[..., Iterable[R]], *iterable) -> Iterable[R]:
 		return it.chain.from_iterable(map(func, *iterable))
-
-
-	class OuterZipStopIteration(Exception):
-		pass
-
-	@overload
-	def outerZip[TT1, TF1, TT2, TF2](iterable1: Iterable[TT1], iterable2: Iterable[TT2], *, fillValues: tuple[TF1, TF2]) -> Iterator[tuple[TT1 | TF1, TT2 | TF2]]:
-		pass
-
-	@overload
-	def outerZip[TT1, TF1, TT2, TF2, TT3, TF3](iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], *, fillValues: tuple[TF1, TF2, TF3]) -> Iterator[tuple[TT1 | TF1, TT2 | TF2, TT3 | TF3]]:
-		pass
-
-	@overload
-	def outerZip[TT1, TF1, TT2, TF2, TT3, TF3, TT4, TF4](iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], iterable4: Iterable[TT4], *, fillValues: tuple[TF1, TF2, TF3, TF4]) -> Iterator[tuple[TT1 | TF1, TT2 | TF2, TT3 | TF3, TT4 | TF4]]:
-		pass
-
-	@overload
-	def outerZip[TT1, TF1, TT2, TF2, TT3, TF3, TT4, TF4, TT5, TF5](iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], iterable4: Iterable[TT4], iterable5: Iterable[TT5], *, fillValues: tuple[TF1, TF2, TF3, TF4, TF5]) -> Iterator[tuple[TT1 | TF1, TT2 | TF2, TT3 | TF3, TT4 | TF4, TT5 | TF5]]:
-		pass
-
-	@overload
-	def outerZip[TT1, TF1, TT2, TF2, TT3, TF3, TT4, TF4, TT5, TF5, TT6, TF6](iterable1: Iterable[TT1], iterable2: Iterable[TT2], iterable3: Iterable[TT3], iterable4: Iterable[TT4], iterable5: Iterable[TT5], iterable6: Iterable[TT6], *, fillValues: tuple[TF1, TF2, TF3, TF4, TF5, TF6]) -> Iterator[tuple[TT1 | TF1, TT2 | TF2, TT3 | TF3, TT4 | TF4, TT5 | TF5, TT6 | TF6]]:
-		pass
-
-	def outerZip[TT](*args: tuple[Iterable[TT], ...], fillValues: tuple[TT, ...]) -> Iterator[tuple[TT, ...]]:
-		argsLen = len(args)
-		fillValuesLen = len(fillValues)
-		if argsLen != fillValuesLen:
-			if fillValuesLen < argsLen and fillValues[-1] is Ellipsis and fillValuesLen >= 2:
-				fillValues = it.chain(fillValues[:-1], fillValues[:-2])
-			else:
-				raise ValueError(f"Length of fillvalues ({fillValuesLen}) is not equal to number of iterables ({argsLen}).")
-		count = argsLen - 1
-
-		def sentinel(default):
-			nonlocal count
-			if not count:
-				raise OuterZipStopIteration
-			count -= 1
-			yield default
-
-		iters = [it.chain(iterable, sentinel(fillvalue), it.repeat(fillvalue)) for iterable, fillvalue in zip(args, fillValues)]
-		try:
-			while iters:
-				yield tuple(map(next, iters))
-		except OuterZipStopIteration:
-			pass
 
 	# mix(...):
 	@overload
@@ -602,7 +529,7 @@ if True:
 		return a + (b - a) * x
 
 	# stable float summation:
-	def kleinSum( floats: Iterable[float]) -> float:
+	def kleinSum(floats: Iterable[float]) -> float:
 		total: float = 0.0
 		cs: float = 0.0
 		ccs: float = 0.0
@@ -721,10 +648,7 @@ __all__ = [
 	'PLATFORM_IS_MAC_OS',
 	'PLATFORM_IS_LINUX',
 
-	'FILE_BROWSER_COMMAND',
 	'FILE_BROWSER_DISPLAY_NAME',
-
-	'ENCODINGS',
 
 	'openOrCreate',
 	'getExePath',
@@ -733,13 +657,8 @@ __all__ = [
 	'INVALID_PATH_CHARS',
 	'sanitizeFileName',
 
-	'selectNotNothing',
-	'selectNotNone',
-	'selectNotNones',
-
 	'findall',
 	'flatmap',
-	'outerZip',
 	'mix',
 	'kleinSum',
 
