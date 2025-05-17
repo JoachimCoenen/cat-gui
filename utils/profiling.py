@@ -3,7 +3,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, ClassVar, Optional, Union
+from typing import Any, Callable, ClassVar, Optional, Union, Self
 
 from . import Decorator, override
 from .utils import kleinSum
@@ -11,7 +11,7 @@ from .utils import kleinSum
 HAS_TIMER = False
 try:
 	from timerit import Timer
-except ModuleNotFoundError as e:
+except ModuleNotFoundError:
 	print("Module '{}' not found.".format('timerit'))
 else:
 	HAS_TIMER = True
@@ -64,7 +64,7 @@ if not HAS_PROFILER and USE_B_PROFILE_CUSTOM:
 	try:
 		from .bprofileCustom import BProfile as BProfileCustom
 
-	except ModuleNotFoundError as e:
+	except ModuleNotFoundError:
 		print("Custom 'bprofile' Module not found. looking for default...")
 	else:
 		HAS_B_PROFILE_CUSTOM = True
@@ -74,7 +74,7 @@ if not HAS_PROFILER and USE_B_PROFILE_CUSTOM:
 if not HAS_PROFILER:
 	try:
 		from bprofile import BProfile
-	except ModuleNotFoundError as e:
+	except ModuleNotFoundError:
 		print("Module 'bprofile' not found.")
 	else:
 		HAS_B_PROFILE = True
@@ -84,10 +84,10 @@ if not HAS_PROFILER:
 if HAS_B_PROFILE_CUSTOM:
 	_Profile = BProfileCustom
 
-if HAS_B_PROFILE:
+elif HAS_B_PROFILE:
 	_Profile = BProfile
 
-if HAS_SCALENE or not HAS_PROFILER:
+elif HAS_SCALENE or not HAS_PROFILER:
 	@dataclass
 	class _Profile:
 		output_path: str
@@ -119,7 +119,7 @@ if HAS_SCALENE or not HAS_PROFILER:
 				if self._hasEnteredCount == 0:
 					if self.enabled and not _Profile._isAnyRunning and not self._hasStartedProfiler:
 						_Profile._isAnyRunning = True
-						print(f"] [ STARTING PROFILER")
+						print("] [ STARTING PROFILER")
 						scalene_profiler.start()
 						self._hasStartedProfiler = True
 				self._hasEnteredCount += 1
@@ -170,7 +170,7 @@ class TimedAction:
 		return self
 
 	def __exit__(self, ex_type, ex_value, trace):
-		result = self._timer.__exit__(ex_type, ex_value, trace)
+		self._timer.__exit__(ex_type, ex_value, trace)
 		secondsStr = f'{self.elapsed:8.3f} s'
 		successStr = 'successful' if trace is None else 'FAILED'
 		TimedAction._recursionDepth -= 1
@@ -180,29 +180,29 @@ class TimedAction:
 
 # @Decorator
 @dataclass(eq=False)
-class TimedFunction:
-	enabled: Union[Callable[[Any], bool], bool] = True
-	verbose: Union[Callable[[Any], bool], bool] = True
-	details: Union[Callable[[Any], str], str] = ''
-	doPrint: Union[Callable[[Any], bool], bool] = True
-	doLog: Union[Callable[[Any], bool], bool] = False
+class TimedFunction[**Args, R]:
+	enabled: Union[Callable[Args, bool], bool] = True
+	verbose: Union[Callable[Args, bool], bool] = True
+	details: Union[Callable[Args, str], str] = ''
+	doPrint: Union[Callable[Args, bool], bool] = True
+	doLog: Union[Callable[Args, bool], bool] = False
 
-	def getLabel(self, func: Callable, funcName: str, args: tuple, kwargs: dict) -> str:
+	def getLabel(self, func: Callable[Args, R], funcName: str, args: tuple, kwargs: dict[str, Any]) -> str:
 		return f"{funcName}()"
 
-	def __call__(self, func):
+	def __call__(self, func: Callable[Args, R]) -> Callable[Args, R]:
 		if not self.enabled:
 			return func
 
-		def _getOrCall(val, args, kwargs):
+		funcName = func.__name__
+
+		def _getOrCall[_T](val: _T, args: tuple, kwargs: dict[str, Any]):
 			if callable(val):
 				return val(*args, **kwargs)
 			return val
 
-		funcName = func.__name__
-
 		@wraps(func)
-		def timedFunc(*args, **kwargs):
+		def timedFunc(*args: Args.args, **kwargs: Args.kwargs) -> R:
 			enabled = _getOrCall(self.enabled, args, kwargs)
 			if not enabled:
 				return func(*args, **kwargs)
@@ -333,16 +333,19 @@ class ProfiledFunction:
 	):
 		super().__init__()
 		self.options = dict(threshold_percent=threshold_percent, report_interval=report_interval, colourNodesBySelftime=colourNodesBySelftime , enabled=enabled)
+
+	def getProfilerName(self, func: Callable, funcName: str) -> str:
+		return funcName
 		
-	def __call__(self, func):
+	def __call__[**Args, R](self, func: Callable[Args, R]) -> Callable[Args, R]:
 		if not self.options['enabled']:
 			return func
 
 		funcName = func.__name__
-		self.profiler = ProfiledAction(funcName, enabled=True)
+		self.profiler = ProfiledAction(self.getProfilerName(func, funcName), enabled=True)
 
 		@wraps(func)
-		def profiledFunction(*args, **kwargs):
+		def profiledFunction(*args: Args.args, **kwargs: Args.kwargs) -> R:
 			for attr, value in self.options.items():
 				if callable(value):
 					value = value(*args, **kwargs)
@@ -353,6 +356,9 @@ class ProfiledFunction:
 		return profiledFunction
 
 
+ProfiledMethod = ProfiledFunction
+
+
 @Decorator
 class FunctionCallCounter:
 	"""docstring for FunctionCallCounter"""
@@ -360,28 +366,29 @@ class FunctionCallCounter:
 	callCounts: dict[str, int] = defaultdict(int)
 	callTimes: dict[str, list[float]] = defaultdict(list)
 
-	def __init__(self, enabled=True, minPrintCount: int = 100):
-		self.enabled = enabled
-		self.minPrintCount = minPrintCount
+	def __init__(self, enabled: bool = True, minPrintCount: int = 100):
+		self.enabled: bool = enabled
+		self.minPrintCount: int = minPrintCount
 		self._timer: Timer = Timer()
+		self._label: str = 'NOT_SET'
 
-	def setLabel(_self_, _func_, _funcName_, args, kwargs):
-		_self_._label = f"{_funcName_}()"
+	def setLabel(self, func: Callable, funcName: str, args: tuple, kwargs:dict[str, Any]):
+		self._label = f"{funcName}()"
 
-	def __call__(self, func):
+	def __call__[**Args, R](self, func: Callable[Args, R]) -> Callable[Args, R]:
 		if not self.enabled:
 			return func
 
 		funcName = func.__name__
 
 		@wraps(func)
-		def timedFunc(*args, **kwargs):
+		def timedFunc(*args: Args.args, **kwargs: Args.kwargs) -> R:
 			self.setLabel(func, funcName, args, kwargs)
 			with self:
 				return func(*args, **kwargs)
 		return timedFunc
 
-	def __enter__(self):
+	def __enter__(self) -> Self:
 		self._timer.__enter__()
 		return self
 
@@ -400,12 +407,12 @@ class FunctionCallCounter:
 
 @Decorator
 class MethodCallCounter(FunctionCallCounter):
-	def setLabel(_self_, _func_, _funcName_, args, kwargs):
+	def setLabel(self, func: Callable, funcName: str, args: tuple, kwargs:dict[str, Any]):
 		typeName = type(args[0]).__name__
-		_self_._label = f"{typeName}.{_funcName_}()"
+		self._label = f"{typeName}.{funcName}()"
 
 
-from ..utils.logging_ import logDebug, logInfo, logWarning, logError, logFatal, printIndented
+from ..utils.logging_ import logDebug, logInfo, logWarning, logError, logFatal
 
 __all__ = [
 	"Timer",
@@ -418,8 +425,6 @@ __all__ = [
 
 	"FunctionCallCounter",
 	"MethodCallCounter",
-
-	"printIndented",
 
 	"logDebug",
 	"logInfo",
