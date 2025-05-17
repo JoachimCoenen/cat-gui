@@ -405,18 +405,15 @@ if True:
 	if not any((PLATFORM_IS_WINDOWS, PLATFORM_IS_DARWIN, PLATFORM_IS_MAC_OS, PLATFORM_IS_LINUX)):
 		raise RuntimeError(f"invalid platform: {platform.system()}!")
 
+	FILE_BROWSER_DISPLAY_NAME: str
 	if PLATFORM_IS_WINDOWS:
-		FILE_BROWSER_COMMAND: str = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
-		FILE_BROWSER_DISPLAY_NAME: str = 'Explorer'
+		FILE_BROWSER_DISPLAY_NAME = 'Explorer'
 	elif PLATFORM_IS_DARWIN:  # macOS
-		FILE_BROWSER_COMMAND: str = 'open'
-		FILE_BROWSER_DISPLAY_NAME: str = 'Finder'
+		FILE_BROWSER_DISPLAY_NAME = 'Finder'
 	elif PLATFORM_IS_LINUX:
-		FILE_BROWSER_COMMAND: str = 'xdg-open'
-		FILE_BROWSER_DISPLAY_NAME: str = 'Nautilus'
+		FILE_BROWSER_DISPLAY_NAME = 'file manager '  # could be Nautilus, Dolphin, Deepin File Manager (DDE), ...
 	else:
-		FILE_BROWSER_COMMAND: str = ''
-		FILE_BROWSER_DISPLAY_NAME: str = 'NO FILE BROWSER FOUND'
+		FILE_BROWSER_DISPLAY_NAME = 'NO FILE BROWSER FOUND'
 
 
 	def openOrCreate(
@@ -458,17 +455,42 @@ if True:
 		return application_path
 
 
+	if PLATFORM_IS_WINDOWS:
+		windir = os.getenv('WINDIR')
+		if windir is None:
+			raise ValueError("cannot find windows directory. Aborting.")
+		EXPLORER_COMMAND: str = os.path.join(windir, 'explorer.exe')
+	else:
+		EXPLORER_COMMAND = 'NOT WINDOWS'
+
+
 	def showInFileSystem(path: str):
 		path = os.path.normpath(path)
 		if PLATFORM_IS_WINDOWS:
 			if os.path.isdir(path):
-				subprocess.run([FILE_BROWSER_COMMAND, path])
+				subprocess.run([EXPLORER_COMMAND, path])
 			elif os.path.isfile(path):
-				subprocess.run([FILE_BROWSER_COMMAND, '/select,', path])
+				subprocess.run([EXPLORER_COMMAND, '/select,', path])
 		elif PLATFORM_IS_DARWIN:  # macOS
-			subprocess.call([FILE_BROWSER_COMMAND, '-R', path])
+			subprocess.call(['open', '-R', path])
 		elif PLATFORM_IS_LINUX:
-			subprocess.Popen([FILE_BROWSER_COMMAND, path])
+			command = ' '.join([
+				'dbus-send',
+				'--session',
+				'--print-reply',
+				'--dest=org.freedesktop.FileManager1',
+				'--type=method_call',
+				'/org/freedesktop/FileManager1',
+				'org.freedesktop.FileManager1.ShowItems',
+				f'array:string:"file://{path}"',
+				'string:""',
+			])
+			res = subprocess.run(command, shell=True)
+			if res.returncode:  # dbus-send did not work as expected...
+				if os.path.exists(path) and not os.path.isdir(path):
+					path = os.path.dirname(path)
+				subprocess.Popen(['xdg-open', path])
+
 		else:
 			raise RuntimeError(f"invalid platform: {platform.system()}!")
 
