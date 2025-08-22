@@ -8,7 +8,6 @@ from PyQt5 import QtWidgets, QtCore
 from ..Serializable.serializableDataclasses import getDecorator, getKwargs, getType, isReadOnly, SerializableDataclass, \
 	getField
 from ..Serializable.utils import getValueOrValueOfProp, PropertyDecorator
-from ..utils import first
 
 _TT = TypeVar('_TT')
 _TS = TypeVar('_TS')

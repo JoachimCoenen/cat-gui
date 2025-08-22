@@ -1065,7 +1065,7 @@ def advancedCodeField(
 		prev: bool = False,
 		next: bool = False,
 		returnCursorPos: bool = False,
-		errors: list[Error] = None,
+		errors: list[Error] = (),
 		**kwargs
 ) -> Union[str, tuple[str, tuple[int, int]]]:
 	codeField: CodeEditor = _innerAdvancedCodeField(gui, code, label, language, focusEndOfText, cursorPosition, selectionTo, searchResults, prev, next, **kwargs)
