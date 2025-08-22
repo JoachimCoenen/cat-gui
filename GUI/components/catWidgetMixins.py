@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import QApplication, QFrame, QLayout, QScrollBar, QShortcut
 
 from ..utilities import connectSafe, disconnect, safeEmit, connectUnsafe
 from ...utils import Decorator
+from ...utils.logging_ import logWarning
 from ...utils.profiling import MethodCallCounter
 from ...utils.utils import CrashReportWrapped, runLaterSafe
 
@@ -1093,9 +1094,12 @@ def setGUIColors(newColors: BaseColors) -> None:
 	if newColors is None:
 		newColors = copy.copy(DEFAULT_COLORS)
 	app = cast(QApplication, QApplication.instance())
-	palette = app.palette()
-	updatePalette(palette, newColors)
-	app.setPalette(palette)
+	if app is None:
+		logWarning("cannot update application color palette, because QApplication.instance() returned None")
+	else:
+		palette = app.palette()
+		updatePalette(palette, newColors)
+		app.setPalette(palette)
 	global standardBaseColors
 	standardBaseColors = newColors
 
