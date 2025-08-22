@@ -136,7 +136,7 @@ def formatDictOnly(v: dict, *, tab: int = 0,  singleIndent: str = INDENT, separa
 	return s
 
 
-def indentMultilineStr(text: str, *, indent: Union[str, int], indentFirstLine: Union[str, int, bool] = True, prefix: str = '', s=None):
+def indentMultilineStr(text: str, *, indent: Union[str, int],  singleIndent: str = INDENT, indentFirstLine: Union[str, int, bool] = True, prefix: str = '', s=None):
 	s = s or SW()
 
 	if not indent and not prefix and (not indentFirstLine or isinstance(indentFirstLine, bool)):
@@ -149,7 +149,7 @@ def indentMultilineStr(text: str, *, indent: Union[str, int], indentFirstLine: U
 		return s
 
 	if type(indent) is int:
-		indent = INDENT * indent
+		indent = singleIndent * indent
 	indent = indent + prefix
 
 	iter_ = iter(splitLines)
@@ -161,7 +161,7 @@ def indentMultilineStr(text: str, *, indent: Union[str, int], indentFirstLine: U
 		else:
 			s += prefix
 	elif isinstance(indentFirstLine, int):
-		s += INDENT * indentFirstLine + prefix
+		s += singleIndent * indentFirstLine + prefix
 	else:
 		s += indentFirstLine + prefix
 
