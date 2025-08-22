@@ -966,12 +966,48 @@ class CatFramedAbstractScrollAreaMixin(CatFramedAreaMixin):
 				self._paintBorder(widget, fillCenter=False, tl=-tl)
 
 
-def matchValue(c1: QColor, *, matchTo: QColor) -> QColor:
+def applyGamma_f(val: float) -> float:
+	return val**2.2
+
+
+def undoGamma_f(val: float) -> float:
+	return val**(1/2.2)
+
+
+def applyGamma_i(val: int) -> int:
+	return int(((val/255)**2.2)*255)
+
+
+def undoGamma_i(val: int) -> int:
+	return int(((val/255)**(1/2.2))*255)
+
+
+def applyGamma_rgb(val: QColor) -> QColor:
+	return QColor(
+		applyGamma_i(val.red()),
+		applyGamma_i(val.green()),
+		applyGamma_i(val.blue()),
+		val.alpha()
+	)
+
+
+def undoGamma_rgb(val: QColor) -> QColor:
+	return QColor(
+		undoGamma_i(val.red()),
+		undoGamma_i(val.green()),
+		undoGamma_i(val.blue()),
+		val.alpha()
+	)
+
+
+def matchValue(c0: QColor, *, matchTo: QColor) -> QColor:
+	c1 = applyGamma_rgb(c0)
+	matchTo = applyGamma_rgb(matchTo)
 	br2 = qGray(matchTo.rgb())
 	br1 = qGray(c1.rgb())
-	val3 = c1.valueF() * br2 / br1 if br1 != 0 else matchTo.valueF()
+	val3 = (c1.valueF() * br2 / br1 if br1 != 0 else matchTo.valueF())
 	val3 = min(1., val3)
-	c3 = QColor.fromHsvF(c1.hsvHueF(), c1.hsvSaturationF(), val3, matchTo.alphaF())
+	c3 = undoGamma_rgb(QColor.fromHsvF(c1.hsvHueF(), c1.hsvSaturationF(), val3, matchTo.alphaF()))
 	return c3
 
 
